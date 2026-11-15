@@ -4,6 +4,7 @@ use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IncomingGoodsController;
 use App\Http\Controllers\OutgoingGoodsController;
+use App\Http\Controllers\StockController;
 
 Route::get('/', fn () => redirect()->route('products.index'));
 
@@ -22,3 +23,6 @@ Route::patch('/incoming-goods/{transaction}/pay',[IncomingGoodsController::class
 Route::get('/outgoing-goods',                  [OutgoingGoodsController::class, 'index'])->name('outgoing-goods.index');
 Route::post('/outgoing-goods',                 [OutgoingGoodsController::class, 'store'])->name('outgoing-goods.store');
 Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 'rollback'])->name('outgoing-goods.rollback');
+
+// Stok Barang
+Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
