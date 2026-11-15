@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use RuntimeException;
 
 class IncomingTransaction extends Model
 {
@@ -15,28 +16,32 @@ class IncomingTransaction extends Model
     ];
 
     protected $casts = [
-        'received_at'    => 'date',
-        'due_date'       => 'date',
-        'box_qty'        => 'integer',
-        'total_pcs'      => 'integer',
-        'price_per_box'  => 'decimal:2',
-        'price_per_pcs'  => 'decimal:2',
-        'subtotal'       => 'decimal:2',
+        'received_at'   => 'date',
+        'due_date'      => 'date',
+        'box_qty'       => 'integer',
+        'total_pcs'     => 'integer',
+        'price_per_box' => 'decimal:2',
+        'price_per_pcs' => 'decimal:2',
+        'subtotal'      => 'decimal:2',
     ];
 
     protected static function booted(): void
     {
         static::created(function (self $trx) {
-            // increment selalu positif, aman
             $trx->product()->increment('stock_pcs', $trx->total_pcs);
         });
 
-        static::deleted(function (self $trx) {
-            // Guard: cegah stok negatif saat rollback incoming
-            // (bisa terjadi jika stok incoming ini sudah habis terjual via outgoing)
-            $product  = $trx->product;
-            $newStock = max(0, $product->stock_pcs - $trx->total_pcs);
-            $product->update(['stock_pcs' => $newStock]);
+        static::deleting(function (self $trx) {
+            $product = Product::query()->lockForUpdate()->findOrFail($trx->product_id);
+
+            if ($product->stock_pcs < $trx->total_pcs) {
+                throw new RuntimeException(
+                    "Tidak bisa rollback: stok {$product->name} ({$product->stock_pcs} Pcs) " .
+                    "lebih kecil dari total incoming ({$trx->total_pcs} Pcs). Sebagian stok sudah terjual lewat Barang Keluar."
+                );
+            }
+
+            $product->decrement('stock_pcs', $trx->total_pcs);
         });
     }
 
