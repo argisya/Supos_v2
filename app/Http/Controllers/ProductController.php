@@ -21,11 +21,12 @@ class ProductController extends Controller
     private function resolveSkuPrefix(?string $categorySlug): string
     {
         return match (strtolower((string) $categorySlug)) {
-            'sembako' => 'SMB',
-            'makanan', 'snack' => 'MKN',
-            'minuman', 'kopi' => 'BVR',
-            'rumah' => 'HSE',
-            default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', (string) $categorySlug) ?: 'GEN', 0, 3)),
+            'sembako'          => 'SMB',
+            'makanan'          => 'MKN',
+            'snack'            => 'SNK',
+            'minuman', 'kopi'  => 'BVR',
+            'rumah'            => 'HSE',
+            default            => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', (string) $categorySlug) ?: 'GEN', 0, 3)),
         };
     }
 

@@ -12,12 +12,12 @@ class IncomingTransactionSeeder extends Seeder
     public function run(): void
     {
         $data = [
-            ['DO-2025/10/891', 'PT Indomarco Adi Prima',       'SKU-MKN-02', '2025-10-24', 'lunas', null,         80,  3200, 118000, 2950,  9440000],
+            ['DO-2025/10/891', 'PT Indomarco Adi Prima',       'SKU-MKN-01', '2025-10-24', 'lunas', null,         80,  3200, 118000, 2950,  9440000],
             ['DO-2025/10/878', 'CV Sumber Berkah Sembako',     'SKU-SMB-01', '2025-10-23', 'tempo', '2025-11-05', 100, 600,  204000, 34000, 20400000],
-            ['DO-2025/10/862', 'PT Mayora Indah Tbk',          'SKU-BVR-03', '2025-10-22', 'lunas', null,         80,  1920, 64800,  2700,  5184000],
-            ['DO-2025/10/840', 'UD Jaya Makmur Pangan',        'SKU-BVR-04', '2025-10-21', 'tempo', '2025-11-20', 30,  3600, 150000, 1250,  4500000],
-            ['DO-2025/10/815', 'PT Unilever Distribution JKT', 'SKU-HSE-05', '2025-10-20', 'lunas', null,         20,  240,  134400, 11200, 2688000],
-            ['DO-2025/10/810', 'CV Sumber Berkah Sembako',     'SKU-SMB-07', '2025-10-19', 'lunas', null,         30,  720,  396000, 16500, 11880000],
+            ['DO-2025/10/862', 'PT Mayora Indah Tbk',          'SKU-BVR-01', '2025-10-22', 'lunas', null,         80,  1920, 64800,  2700,  5184000],
+            ['DO-2025/10/840', 'UD Jaya Makmur Pangan',        'SKU-BVR-02', '2025-10-21', 'tempo', '2025-11-20', 30,  3600, 150000, 1250,  4500000],
+            ['DO-2025/10/815', 'PT Unilever Distribution JKT', 'SKU-HSE-01', '2025-10-20', 'lunas', null,         20,  240,  134400, 11200, 2688000],
+            ['DO-2025/10/810', 'CV Sumber Berkah Sembako',     'SKU-SMB-02', '2025-10-19', 'lunas', null,         30,  720,  396000, 16500, 11880000],
         ];
 
         foreach ($data as [$noFaktur, $supplierName, $sku, $recvAt, $status, $dueDate, $boxQty, $totalPcs, $priceBox, $pricePcs, $subtotal]) {
