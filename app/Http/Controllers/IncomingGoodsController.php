@@ -62,8 +62,10 @@ class IncomingGoodsController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $selectedProductId = $request->integer('product_id') ?: null;
+
         return view('incoming-goods.index', compact(
-            'kpi', 'suppliers', 'products', 'transactions', 'status'
+            'kpi', 'suppliers', 'products', 'transactions', 'status', 'selectedProductId'
         ));
     }
 

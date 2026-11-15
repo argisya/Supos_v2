@@ -595,6 +595,14 @@
         if (paymentStatus.value === 'tempo') setPaymentStatus('tempo');
         onProductChange(false);
 
+        @if(!empty($selectedProductId))
+            openInputFakturModal(inputBoxQty);
+            if (productSelect) {
+                productSelect.value = "{{ $selectedProductId }}";
+                onProductChange(true);
+            }
+        @endif
+
         if (sessionStorage.getItem('incomingGoodsSearchFocus') === '1' && searchInput) {
             sessionStorage.removeItem('incomingGoodsSearchFocus');
             searchInput.focus();

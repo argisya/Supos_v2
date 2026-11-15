@@ -141,7 +141,7 @@
                                             data-barcode="{{ $p->barcode }}"
                                             data-name="{{ $p->name }}"
                                             data-last-price="{{ (int) ($p->last_price ?? 0) }}"
-                                            @selected(old('product_id', $products->first()?->id) == $p->id)>
+                                            @selected(old('product_id', $selectedProductId ?? $products->first()?->id) == $p->id)>
                                         {{ $p->sku }} — {{ $p->name }} (1 Box = {{ $p->box_pcs_ratio }} Pcs)
                                     </option>
                                 @endforeach

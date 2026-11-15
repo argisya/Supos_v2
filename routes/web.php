@@ -7,7 +7,7 @@ use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('products.index'));
+Route::get('/', fn() => redirect()->route('products.index'));
 
 // Master Barang
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
@@ -38,7 +38,13 @@ Route::post('/outgoing-goods', [OutgoingGoodsController::class, 'store'])->name(
 Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 'rollback'])->name('outgoing-goods.rollback');
 
 // Stok Barang
-Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+Route::prefix('stock')->name('stock.')->group(function () {
+    Route::get('/', [StockController::class, 'index'])->name('index');
+    Route::post('/alert-threshold', [StockController::class, 'updateAlertThreshold'])->name('alert-threshold');
+    Route::post('/opname', [StockController::class, 'storeOpname'])->name('opname');
+    Route::get('/export', [StockController::class, 'export'])->name('export');
+    Route::get('/{product}/mutations', [StockController::class, 'mutations'])->name('mutations');
+});
 
 // Buku Tagihan
 Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
