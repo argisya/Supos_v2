@@ -149,6 +149,10 @@ class OutgoingGoodsController extends Controller
         $no = $transaction->no_invoice;
         $transaction->delete(); // model events auto-increment stock_pcs
 
+        if ($transaction->payments()->exists()) {
+            return back()->withErrors(['error' => 'Tidak bisa rollback: transaksi sudah memiliki pembayaran.']);
+        }
+
         return redirect()
             ->route('outgoing-goods.index')
             ->with('success', "Transaksi {$no} di-rollback. Stok dikembalikan.");

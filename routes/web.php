@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IncomingGoodsController;
 use App\Http\Controllers\OutgoingGoodsController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\ReceivableController;
 
 Route::get('/', fn () => redirect()->route('products.index'));
 
@@ -26,3 +27,7 @@ Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 
 
 // Stok Barang
 Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+
+// Buku Tagihan
+Route::get('/receivables',                    [ReceivableController::class, 'index'])->name('receivables.index');
+Route::post('/receivables/{transaction}/pay', [ReceivableController::class, 'pay'])->name('receivables.pay');

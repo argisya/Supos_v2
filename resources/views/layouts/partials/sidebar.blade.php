@@ -22,7 +22,7 @@
                     ['path' => 'barang-masuk',   'icon' => 'input',                 'label' => 'Barang Masuk',   'route' => 'incoming-goods.index'],
                     ['path' => 'barang-keluar',  'icon' => 'output',                'label' => 'Barang Keluar',  'route' => 'outgoing-goods.index'],
                     ['path' => 'stok-barang',    'icon' => 'warehouse',             'label' => 'Stok Barang',    'route' => 'stock.index'],
-                    ['path' => 'buku-tagihan',   'icon' => 'receipt_long',          'label' => 'Buku Tagihan'],
+                    ['path' => 'buku-tagihan',   'icon' => 'receipt_long',          'label' => 'Buku Tagihan',   'route' => 'receivables.index'],
                     ['path' => 'kas-masuk',      'icon' => 'payments',              'label' => 'Kas Masuk'],
                     ['path' => 'kas-keluar',     'icon' => 'account_balance_wallet','label' => 'Kas Keluar'],
                 ];
@@ -32,6 +32,7 @@
                     request()->routeIs('incoming-goods.*') => 'barang-masuk',
                     request()->routeIs('outgoing-goods.*') => 'barang-keluar',
                     request()->routeIs('stock.*')          => 'stok-barang',
+                    request()->routeIs('receivables.*')    => 'buku-tagihan',
                     default                                => null,
                 };
             @endphp

@@ -26,14 +26,17 @@ class IncomingTransaction extends Model
 
     protected static function booted(): void
     {
-        // Stok MASUK saat transaksi dibuat
         static::created(function (self $trx) {
-            $trx->product->increment('stock_pcs', $trx->total_pcs);
+            // increment selalu positif, aman
+            $trx->product()->increment('stock_pcs', $trx->total_pcs);
         });
 
-        // Stok DIKURANGI saat rollback incoming
         static::deleted(function (self $trx) {
-            $trx->product->decrement('stock_pcs', $trx->total_pcs);
+            // Guard: cegah stok negatif saat rollback incoming
+            // (bisa terjadi jika stok incoming ini sudah habis terjual via outgoing)
+            $product  = $trx->product;
+            $newStock = max(0, $product->stock_pcs - $trx->total_pcs);
+            $product->update(['stock_pcs' => $newStock]);
         });
     }
 

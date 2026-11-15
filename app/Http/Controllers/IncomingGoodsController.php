@@ -120,6 +120,16 @@ class IncomingGoodsController extends Controller
 
     public function rollback(IncomingTransaction $transaction)
     {
+        // Cek apakah incoming ini sudah "dipakai" oleh outgoing
+        $product = $transaction->product;
+        if ($product->stock_pcs < $transaction->total_pcs) {
+            return back()->withErrors([
+                'error' => "Tidak bisa rollback: stok {$product->name} ({$product->stock_pcs} Pcs) " .
+                        "lebih kecil dari total incoming ({$transaction->total_pcs} Pcs). " .
+                        "Sebagian stok sudah terjual lewat Barang Keluar.",
+            ]);
+        }
+
         $no = $transaction->no_faktur;
         $transaction->delete();
 
