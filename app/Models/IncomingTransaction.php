@@ -24,6 +24,19 @@ class IncomingTransaction extends Model
         'subtotal'       => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        // Stok MASUK saat transaksi dibuat
+        static::created(function (self $trx) {
+            $trx->product->increment('stock_pcs', $trx->total_pcs);
+        });
+
+        // Stok DIKURANGI saat rollback incoming
+        static::deleted(function (self $trx) {
+            $trx->product->decrement('stock_pcs', $trx->total_pcs);
+        });
+    }
+
     public function supplier(): BelongsTo { return $this->belongsTo(Supplier::class); }
     public function product(): BelongsTo  { return $this->belongsTo(Product::class); }
 }
