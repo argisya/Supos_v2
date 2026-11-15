@@ -18,15 +18,20 @@
             @php
                 $navItems = [
                     ['path' => 'dashboard',      'icon' => 'space_dashboard',       'label' => 'Dashboard'],
-                    ['path' => 'master-barang',  'icon' => 'category',              'label' => 'Master Barang', 'route' => 'products.index'],
-                    ['path' => 'barang-masuk',   'icon' => 'input',                 'label' => 'Barang Masuk'],
+                    ['path' => 'master-barang',  'icon' => 'category',              'label' => 'Master Barang',  'route' => 'products.index'],
+                    ['path' => 'barang-masuk',   'icon' => 'input',                 'label' => 'Barang Masuk',   'route' => 'incoming-goods.index'],
                     ['path' => 'barang-keluar',  'icon' => 'output',                'label' => 'Barang Keluar'],
                     ['path' => 'stok-barang',    'icon' => 'warehouse',             'label' => 'Stok Barang'],
                     ['path' => 'buku-tagihan',   'icon' => 'receipt_long',          'label' => 'Buku Tagihan'],
                     ['path' => 'kas-masuk',      'icon' => 'payments',              'label' => 'Kas Masuk'],
                     ['path' => 'kas-keluar',     'icon' => 'account_balance_wallet','label' => 'Kas Keluar'],
                 ];
-                $currentRoute = request()->routeIs('products.*') ? 'master-barang' : null;
+
+                $currentRoute = match (true) {
+                    request()->routeIs('products.*')       => 'master-barang',
+                    request()->routeIs('incoming-goods.*') => 'barang-masuk',
+                    default                                => null,
+                };
             @endphp
             @foreach($navItems as $item)
                 @php $active = $currentRoute === $item['path']; @endphp
