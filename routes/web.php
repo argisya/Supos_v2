@@ -35,6 +35,8 @@ Route::patch('/incoming-goods/{transaction}/pay', [IncomingGoodsController::clas
 // Barang Keluar
 Route::get('/outgoing-goods', [OutgoingGoodsController::class, 'index'])->name('outgoing-goods.index');
 Route::post('/outgoing-goods', [OutgoingGoodsController::class, 'store'])->name('outgoing-goods.store');
+Route::post('/outgoing-goods/customers', [OutgoingGoodsController::class, 'storeCustomer'])->name('outgoing-goods.customers.store');
+Route::get('/outgoing-goods/{transaction}/receipt', [OutgoingGoodsController::class, 'receipt'])->name('outgoing-goods.receipt');
 Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 'rollback'])->name('outgoing-goods.rollback');
 
 // Stok Barang

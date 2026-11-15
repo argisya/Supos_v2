@@ -142,7 +142,9 @@ class StockController extends Controller
             ];
         });
 
-        $diffLabel = $summary['diff'] >= 0 ? '+' . number_format($summary['diff'], 0, ',', '.') : number_format($summary['diff'], 0, ',', '.');
+        $diffLabel = $summary['diff'] >= 0
+            ? '+' . number_format($summary['diff'], 0, ',', '.')
+            : number_format($summary['diff'], 0, ',', '.');
 
         return redirect()
             ->route('stock.index')
@@ -169,22 +171,28 @@ class StockController extends Controller
                 'subtotal'   => (int) $trx->subtotal,
             ]);
 
-        $outgoing = OutgoingTransaction::where('product_id', $product->id)
+        $outgoing = OutgoingTransaction::with('customer')
+            ->where('product_id', $product->id)
             ->orderByDesc('sold_at')
             ->orderByDesc('id')
             ->limit(25)
             ->get()
             ->map(fn ($trx) => [
                 'type'       => 'KELUAR',
-                'ref_no'     => $trx->no_invoice ?? $trx->no_faktur ?? ('OUT-' . $trx->id),
+                'ref_no'     => $trx->no_invoice,
                 'date'       => $trx->sold_at?->format('d M Y') ?? '-',
                 'sort_date'  => ($trx->sold_at?->format('Y-m-d') ?? '1970-01-01') . ' ' . ($trx->created_at?->format('H:i:s') ?? '00:00:00'),
-                'party'      => $trx->customer_name ?? 'Pelanggan Grosir',
-                'box_qty'    => (int) ($trx->box_qty ?? 0),
-                'total_pcs'  => (int) ($trx->total_pcs ?? $trx->qty_pcs ?? 0),
-                'unit_price' => (int) ($trx->price_per_box ?? $trx->sell_price ?? 0),
-                'subtotal'   => (int) ($trx->subtotal ?? $trx->total_price ?? 0),
+                'party'      => $trx->customer?->name ?? 'Pelanggan Grosir',
+                'box_qty'    => (int) $trx->box_qty,
+                'total_pcs'  => (int) $trx->total_pcs,
+                'unit_price' => (int) $trx->sell_per_box,
+                'subtotal'   => (int) $trx->subtotal,
             ]);
+
+        $totalInAll  = (int) IncomingTransaction::where('product_id', $product->id)->sum('total_pcs');
+        $totalOutAll = (int) OutgoingTransaction::where('product_id', $product->id)->sum('total_pcs');
+        $ledgerStock = $totalInAll - $totalOutAll;
+        $opnameAdj   = (int) $product->stock_pcs - $ledgerStock;
 
         $history = $incoming->concat($outgoing)
             ->sortByDesc('sort_date')
@@ -203,6 +211,7 @@ class StockController extends Controller
                 'stock_box'     => intdiv((int) $product->stock_pcs, $ratio),
                 'rem_pcs'       => (int) $product->stock_pcs % $ratio,
                 'min_stock_box' => (int) ($product->min_stock_box ?? 10),
+                'opname_adj'    => $opnameAdj,
             ],
             'mutations' => $history,
         ]);
@@ -281,6 +290,7 @@ class StockController extends Controller
     private function buildFilteredQuery(Request $request, string $status, string $cat, string $sort, array $subqueries)
     {
         $lastPriceSub = '(SELECT price_per_box FROM incoming_transactions WHERE product_id = products.id ORDER BY received_at DESC, id DESC LIMIT 1)';
+        $safeRatioSql = '(CASE WHEN box_pcs_ratio > 0 THEN box_pcs_ratio ELSE 1 END)';
 
         $query = Product::active()
             ->with('category')
@@ -301,15 +311,18 @@ class StockController extends Controller
         if ($status === 'HABIS') {
             $query->where('stock_pcs', '<=', 0);
         } elseif ($status === 'MENIPIS') {
-            $query->whereRaw('stock_pcs > 0 AND stock_pcs <= COALESCE(min_stock_box, 10) * GREATEST(box_pcs_ratio, 1)');
+            $query->whereRaw("stock_pcs > 0 AND stock_pcs <= COALESCE(min_stock_box, 10) * {$safeRatioSql}");
         } elseif ($status === 'AMAN') {
-            $query->whereRaw('stock_pcs > COALESCE(min_stock_box, 10) * GREATEST(box_pcs_ratio, 1)');
+            $query->whereRaw("stock_pcs > COALESCE(min_stock_box, 10) * {$safeRatioSql}");
         }
+
+        $lastInSql  = 'COALESCE((SELECT MAX(received_at) FROM incoming_transactions WHERE product_id = products.id), "1970-01-01")';
+        $lastOutSql = 'COALESCE((SELECT MAX(sold_at) FROM outgoing_transactions WHERE product_id = products.id), "1970-01-01")';
 
         match ($sort) {
             'stok_desc'  => $query->orderByDesc('stock_pcs'),
-            'nilai_desc' => $query->orderByRaw("((stock_pcs / GREATEST(box_pcs_ratio, 1)) * COALESCE({$lastPriceSub}, 0)) DESC"),
-            'mutasi'     => $query->orderByRaw('GREATEST(COALESCE((SELECT MAX(received_at) FROM incoming_transactions WHERE product_id = products.id), "1970-01-01"), COALESCE((SELECT MAX(sold_at) FROM outgoing_transactions WHERE product_id = products.id), "1970-01-01")) DESC'),
+            'nilai_desc' => $query->orderByRaw("((stock_pcs * 1.0 / {$safeRatioSql}) * COALESCE({$lastPriceSub}, 0)) DESC"),
+            'mutasi'     => $query->orderByRaw("(CASE WHEN {$lastInSql} >= {$lastOutSql} THEN {$lastInSql} ELSE {$lastOutSql} END) DESC"),
             'nama_asc'   => $query->orderBy('name'),
             default      => $query->orderBy('stock_pcs')->orderBy('name'),
         };

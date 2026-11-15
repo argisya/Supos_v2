@@ -17,40 +17,41 @@ class OutgoingGoodsController extends Controller
         $today = OutgoingTransaction::whereDate('sold_at', today());
 
         $kpi = [
-            'today_sales' => (int) (clone $today)->sum('subtotal'),
-            'today_count' => (clone $today)->count(),
-            'today_box' => (int) (clone $today)->sum('box_qty'),
+            'today_sales'  => (int) (clone $today)->sum('subtotal'),
+            'today_count'  => (clone $today)->count(),
+            'today_box'    => (int) (clone $today)->sum('box_qty'),
             'today_profit' => (int) (clone $today)->sum('profit'),
-            'today_hpp' => (int) (clone $today)->sum('total_hpp'),
-            'today_pcs' => (int) (clone $today)->sum('total_pcs'),
+            'today_hpp'    => (int) (clone $today)->sum('total_hpp'),
+            'today_pcs'    => (int) (clone $today)->sum('total_pcs'),
 
-            'lunas_total' => (int) (clone $today)->where('payment_status', 'lunas')->sum('subtotal'),
-            'lunas_count' => (clone $today)->where('payment_status', 'lunas')->count(),
+            'lunas_total'  => (int) (clone $today)->where('payment_status', 'lunas')->sum('subtotal'),
+            'lunas_count'  => (clone $today)->where('payment_status', 'lunas')->count(),
 
-            'tempo_total' => (int) OutgoingTransaction::where('payment_status', 'tempo')->sum('subtotal'),
-            'tempo_count' => OutgoingTransaction::where('payment_status', 'tempo')->distinct('customer_id')->count('customer_id'),
-            'tempo_rows' => OutgoingTransaction::where('payment_status', 'tempo')->count(),
+            'tempo_total'  => (int) OutgoingTransaction::where('payment_status', 'tempo')
+                ->selectRaw('COALESCE(SUM(subtotal - paid_amount), 0) as total')
+                ->value('total'),
+            'tempo_count'  => OutgoingTransaction::where('payment_status', 'tempo')->distinct('customer_id')->count('customer_id'),
+            'tempo_rows'   => OutgoingTransaction::where('payment_status', 'tempo')->count(),
 
-            'total_count' => OutgoingTransaction::count(),
-            'lunas_all' => OutgoingTransaction::where('payment_status', 'lunas')->count(),
-            'tempo_all' => OutgoingTransaction::where('payment_status', 'tempo')->count(),
+            'total_count'  => OutgoingTransaction::count(),
+            'lunas_all'    => OutgoingTransaction::where('payment_status', 'lunas')->count(),
+            'tempo_all'    => OutgoingTransaction::where('payment_status', 'tempo')->count(),
         ];
 
         $customers = Customer::orderBy('name')->get();
 
-        // Produk yang masih ada stok + last HPP
         $products = Product::active()
-            ->addSelect(['last_hpp' => IncomingTransaction::select('price_per_box')
-                ->whereColumn('product_id', 'products.id')
-                ->orderByDesc('received_at')
-                ->orderByDesc('id')
-                ->limit(1),
+            ->addSelect([
+                'last_hpp' => IncomingTransaction::select('price_per_box')
+                    ->whereColumn('product_id', 'products.id')
+                    ->orderByDesc('received_at')
+                    ->orderByDesc('id')
+                    ->limit(1),
             ])
             ->where('stock_pcs', '>', 0)
             ->orderBy('name')
             ->get();
 
-        // Tabel riwayat
         $query = OutgoingTransaction::with(['customer', 'product']);
 
         if ($search = $request->string('search')->trim()->toString()) {
@@ -71,13 +72,10 @@ class OutgoingGoodsController extends Controller
         $transactions = $query
             ->orderByDesc('sold_at')
             ->orderByDesc('id')
-            ->paginate(5)
+            ->paginate(10)
             ->withQueryString();
 
-        // Total laba dari halaman saat ini (untuk footer)
         $batchProfit = (int) $transactions->getCollection()->sum('profit');
-
-        // Suggested invoice number
         $suggestedInvoice = $this->generateInvoiceNo();
 
         return view('outgoing-goods.index', compact(
@@ -89,92 +87,144 @@ class OutgoingGoodsController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'product_id' => 'required|exists:products,id',
+            'customer_id'    => 'required|exists:customers,id',
+            'product_id'     => 'required|exists:products,id',
             'payment_status' => 'required|in:lunas,tempo',
-            'due_date' => 'nullable|required_if:payment_status,tempo|date|after_or_equal:today',
-            'box_qty' => 'required|integer|min:1',
-            'sell_per_box' => 'required|numeric|min:1',
+            'due_date'       => 'nullable|required_if:payment_status,tempo|date|after_or_equal:today',
+            'box_qty'        => 'required|integer|min:1',
+            'sell_per_box'   => 'required|numeric|min:1',
         ], [
             'due_date.required_if' => 'Tanggal jatuh tempo wajib diisi untuk pembayaran tempo.',
         ]);
 
-        $noInvoice = $this->generateInvoiceNo();
-
-        $transactionSummary = DB::transaction(function () use ($data, $noInvoice): array {
+        $result = DB::transaction(function () use ($data): array {
             $product = Product::query()
                 ->lockForUpdate()
                 ->findOrFail($data['product_id']);
-            $totalPcs = $data['box_qty'] * $product->box_pcs_ratio;
+
+            $ratio = max(1, (int) $product->box_pcs_ratio);
+            $totalPcs = (int) $data['box_qty'] * $ratio;
 
             if ($product->stock_pcs < $totalPcs) {
-                $maxBox = (int) floor($product->stock_pcs / $product->box_pcs_ratio);
+                $maxBox = intdiv((int) $product->stock_pcs, $ratio);
                 throw ValidationException::withMessages([
                     'box_qty' => "Stok tidak cukup. Tersedia {$product->stock_pcs} Pcs (~{$maxBox} Box).",
                 ]);
             }
 
-            // Snapshot HPP dari incoming terakhir — server yang menentukan (tidak trust form)
-            $lastHpp = (float) (IncomingTransaction::where('product_id', $product->id)
-                ->latest('received_at')->value('price_per_box') ?? 0);
+            $lastIncoming = IncomingTransaction::where('product_id', $product->id)
+                ->orderByDesc('received_at')
+                ->orderByDesc('id')
+                ->first();
 
-            $subtotal = (int) $data['box_qty'] * (int) $data['sell_per_box'];
-            $totalHpp = (int) $data['box_qty'] * (int) $lastHpp;
-            $profit = $subtotal - $totalHpp;
+            if (! $lastIncoming || (float) $lastIncoming->price_per_box <= 0) {
+                throw ValidationException::withMessages([
+                    'product_id' => 'Produk belum memiliki riwayat HPP di Barang Masuk. Input Barang Masuk terlebih dahulu.',
+                ]);
+            }
+
+            $noInvoice = $this->generateInvoiceNo(true);
+            $lastHpp   = (float) $lastIncoming->price_per_box;
+            $sellBox   = (float) $data['sell_per_box'];
+            $boxQty    = (int) $data['box_qty'];
+
+            $subtotal   = $boxQty * $sellBox;
+            $totalHpp   = $boxQty * $lastHpp;
+            $profit     = $subtotal - $totalHpp;
+            $isLunas    = $data['payment_status'] === 'lunas';
 
             OutgoingTransaction::create([
-                'no_invoice' => $noInvoice,
-                'customer_id' => $data['customer_id'],
-                'product_id' => $product->id,
-                'sold_at' => now(),
+                'no_invoice'     => $noInvoice,
+                'customer_id'    => $data['customer_id'],
+                'product_id'     => $product->id,
+                'sold_at'        => now(),
                 'payment_status' => $data['payment_status'],
-                'due_date' => $data['payment_status'] === 'tempo' ? $data['due_date'] : null,
-                'box_qty' => $data['box_qty'],
-                'total_pcs' => $totalPcs,
-                'hpp_per_box' => $lastHpp,
-                'sell_per_box' => $data['sell_per_box'],
-                'hpp_per_pcs' => round($lastHpp / $product->box_pcs_ratio, 2),
-                'sell_per_pcs' => round($data['sell_per_box'] / $product->box_pcs_ratio, 2),
-                'subtotal' => $subtotal,
-                'total_hpp' => $totalHpp,
-                'profit' => $profit,
+                'due_date'       => $isLunas ? null : $data['due_date'],
+                'box_qty'        => $boxQty,
+                'total_pcs'      => $totalPcs,
+                'hpp_per_box'    => $lastHpp,
+                'sell_per_box'   => $sellBox,
+                'hpp_per_pcs'    => round($lastHpp / $ratio, 2),
+                'sell_per_pcs'   => round($sellBox / $ratio, 2),
+                'subtotal'       => $subtotal,
+                'total_hpp'      => $totalHpp,
+                'profit'         => $profit,
+                'paid_amount'    => $isLunas ? $subtotal : 0,
             ]);
-            // Note: stock_pcs decrement ditangani model events
 
             return [
-                'total_pcs' => $totalPcs,
-                'profit' => $profit,
+                'no_invoice' => $noInvoice,
+                'total_pcs'  => $totalPcs,
+                'profit'     => $profit,
             ];
         });
 
         return redirect()
             ->route('outgoing-goods.index')
-            ->with('success', "Faktur {$noInvoice} tersimpan. Stok -{$transactionSummary['total_pcs']} Pcs, laba ".number_format($transactionSummary['profit'], 0, ',', '.').'.');
+            ->with('success', "Faktur {$result['no_invoice']} tersimpan. Stok -{$result['total_pcs']} Pcs, laba Rp " . number_format($result['profit'], 0, ',', '.') . '.');
     }
 
     public function rollback(OutgoingTransaction $transaction)
     {
-        $no = $transaction->no_invoice;
-        $transaction->delete(); // model events auto-increment stock_pcs
-
         if ($transaction->payments()->exists()) {
-            return back()->withErrors(['error' => 'Tidak bisa rollback: transaksi sudah memiliki pembayaran.']);
+            return back()->withErrors([
+                'error' => "Tidak bisa rollback {$transaction->no_invoice}: transaksi sudah memiliki riwayat pembayaran piutang.",
+            ]);
         }
+
+        $no = $transaction->no_invoice;
+
+        DB::transaction(function () use ($transaction) {
+            $transaction->delete();
+        });
 
         return redirect()
             ->route('outgoing-goods.index')
-            ->with('success', "Transaksi {$no} di-rollback. Stok dikembalikan.");
+            ->with('success', "Transaksi {$no} berhasil di-rollback. Stok fisik telah dikembalikan.");
     }
 
-    private function generateInvoiceNo(): string
+    public function storeCustomer(Request $request)
     {
-        $prefix = 'INV-'.now()->format('Y/m').'/';
-        $last = OutgoingTransaction::where('no_invoice', 'like', $prefix.'%')
-            ->orderByDesc('id')
-            ->value('no_invoice');
+        $data = $request->validate([
+            'name'    => 'required|string|max:120|unique:customers,name',
+            'type'    => 'nullable|string|max:60',
+            'phone'   => 'nullable|string|max:30',
+            'address' => 'nullable|string|max:255',
+        ], [
+            'name.unique' => 'Nama pelanggan/toko mitra sudah terdaftar.',
+        ]);
 
+        $customer = Customer::create($data);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message'  => 'Pelanggan mitra berhasil ditambahkan.',
+                'customer' => $customer,
+            ]);
+        }
+
+        return back()->with('success', "Pelanggan {$customer->name} berhasil ditambahkan.");
+    }
+
+    public function receipt(OutgoingTransaction $transaction)
+    {
+        $transaction->load(['customer', 'product']);
+
+        return view('outgoing-goods.receipt', compact('transaction'));
+    }
+
+    private function generateInvoiceNo(bool $lock = false): string
+    {
+        $prefix = 'INV-' . now()->format('Y/m') . '/';
+        $query  = OutgoingTransaction::where('no_invoice', 'like', $prefix . '%');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $last = $query->orderByDesc('id')->value('no_invoice');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
-        return $prefix.str_pad($next, 3, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }
