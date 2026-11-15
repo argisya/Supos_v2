@@ -1,6 +1,7 @@
-<aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+<aside id="appSidebar" class="fixed left-0 top-0 h-full w-72 -translate-x-full lg:translate-x-0 transition-transform duration-200 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
     <div class="flex flex-col gap-space-md">
-        <div class="px-margin flex items-center gap-space-sm">
+        <div class="px-margin flex items-center justify-between gap-space-sm">
+            <div class="flex items-center gap-space-sm">
             <div class="w-9 h-9 rounded-xl bg-primary-container/20 flex items-center justify-center text-primary shadow-[0_0_16px_rgba(16,185,129,0.35)]">
                 <span class="material-symbols-outlined text-[22px]">inventory_2</span>
             </div>
@@ -8,6 +9,11 @@
                 <span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">GrosirBox <span class="text-primary">PRO</span></span>
                 <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mt-1">Box-Pcs Engine v2.4</span>
             </div>
+            </div>
+            <button id="mobileNavClose" type="button" aria-label="Tutup menu navigasi"
+                    class="lg:hidden w-9 h-9 rounded-xl text-on-surface-variant hover:bg-surface-container-high flex items-center justify-center">
+                <span class="material-symbols-outlined">close</span>
+            </button>
         </div>
 
         <div class="px-margin pt-space-xs">

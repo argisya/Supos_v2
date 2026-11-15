@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -18,6 +19,16 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function incomingTransactions(): HasMany
+    {
+        return $this->hasMany(IncomingTransaction::class);
+    }
+
+    public function outgoingTransactions(): HasMany
+    {
+        return $this->hasMany(OutgoingTransaction::class);
+    }
+
     public function scopeActive(Builder $q): Builder
     {
         return $q->where('status', 'active');
@@ -27,9 +38,9 @@ class Product extends Model
     {
         return match ($size) {
             'compact' => $q->where('box_pcs_ratio', '<=', 12),
-            'medium'  => $q->whereBetween('box_pcs_ratio', [13, 39]),
-            'large'   => $q->where('box_pcs_ratio', '>=', 40),
-            default   => $q,
+            'medium' => $q->whereBetween('box_pcs_ratio', [13, 39]),
+            'large' => $q->where('box_pcs_ratio', '>=', 40),
+            default => $q,
         };
     }
 }

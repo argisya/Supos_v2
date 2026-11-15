@@ -16,9 +16,11 @@
 <body class="bg-background font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container">
 
     {{-- ================= SIDEBAR ================= --}}
+    <button id="mobileSidebarBackdrop" type="button" aria-label="Tutup menu navigasi"
+            class="fixed inset-0 z-40 hidden bg-black/50 backdrop-blur-sm lg:hidden"></button>
     @include('layouts.partials.sidebar')
 
-    <div class="pl-72">
+    <div class="pl-0 lg:pl-72">
         {{-- ================= HEADER ================= --}}
         @include('layouts.partials.header')
 
@@ -40,5 +42,30 @@
     @endif
 
     @stack('scripts')
+    <script>
+        (() => {
+            const sidebar = document.getElementById('appSidebar');
+            const toggle = document.getElementById('mobileNavToggle');
+            const close = document.getElementById('mobileNavClose');
+            const backdrop = document.getElementById('mobileSidebarBackdrop');
+
+            const setSidebarOpen = (isOpen) => {
+                sidebar.classList.toggle('-translate-x-full', !isOpen);
+                backdrop.classList.toggle('hidden', !isOpen);
+                document.body.classList.toggle('overflow-hidden', isOpen);
+                toggle.setAttribute('aria-expanded', String(isOpen));
+            };
+
+            toggle.addEventListener('click', () => setSidebarOpen(true));
+            close.addEventListener('click', () => setSidebarOpen(false));
+            backdrop.addEventListener('click', () => setSidebarOpen(false));
+            sidebar.querySelectorAll('a[href]:not([href="#"])').forEach(link => {
+                link.addEventListener('click', () => setSidebarOpen(false));
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') setSidebarOpen(false);
+            });
+        })();
+    </script>
 </body>
 </html>

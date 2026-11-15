@@ -6,6 +6,7 @@ use App\Models\IncomingTransaction;
 use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class IncomingGoodsController extends Controller
 {
@@ -13,26 +14,26 @@ class IncomingGoodsController extends Controller
     {
         // ============ KPI (bulan berjalan + global tempo) ============
         $start = now()->startOfMonth();
-        $end   = now()->endOfMonth();
+        $end = now()->endOfMonth();
         $month = IncomingTransaction::whereBetween('received_at', [$start, $end]);
 
         $kpi = [
             'month_total' => (int) (clone $month)->sum('subtotal'),
-            'month_box'   => (int) (clone $month)->sum('box_qty'),
-            'month_pcs'   => (int) (clone $month)->sum('total_pcs'),
+            'month_box' => (int) (clone $month)->sum('box_qty'),
+            'month_pcs' => (int) (clone $month)->sum('total_pcs'),
             'lunas_total' => (int) (clone $month)->where('payment_status', 'lunas')->sum('subtotal'),
             'lunas_count' => (clone $month)->where('payment_status', 'lunas')->count(),
             'tempo_total' => (int) IncomingTransaction::where('payment_status', 'tempo')->sum('subtotal'),
             'tempo_count' => IncomingTransaction::where('payment_status', 'tempo')->count(),
-            'tempo_soon'  => IncomingTransaction::where('payment_status', 'tempo')
-                                ->whereBetween('due_date', [now(), now()->addDays(7)])->count(),
+            'tempo_soon' => IncomingTransaction::where('payment_status', 'tempo')
+                ->whereBetween('due_date', [now(), now()->addDays(7)])->count(),
             'sku_updated' => (clone $month)->distinct('product_id')->count('product_id'),
-            'sku_names'   => (clone $month)->with('product')->latest('id')->limit(3)->get()
-                                ->pluck('product.name')->filter()->implode(', '),
+            'sku_names' => (clone $month)->with('product')->latest('id')->limit(3)->get()
+                ->pluck('product.name')->filter()->implode(', '),
             // Global counts untuk tab filter
             'total_count' => IncomingTransaction::count(),
-            'lunas_all'   => IncomingTransaction::where('payment_status', 'lunas')->count(),
-            'tempo_all'   => IncomingTransaction::where('payment_status', 'tempo')->count(),
+            'lunas_all' => IncomingTransaction::where('payment_status', 'lunas')->count(),
+            'tempo_all' => IncomingTransaction::where('payment_status', 'tempo')->count(),
         ];
 
         // ============ Suppliers ============
@@ -55,8 +56,8 @@ class IncomingGoodsController extends Controller
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('no_faktur', 'like', "%{$search}%")
-                  ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('product',  fn ($p) => $p->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('product', fn ($p) => $p->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -81,37 +82,43 @@ class IncomingGoodsController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'no_faktur'      => 'required|string|max:100|unique:incoming_transactions,no_faktur',
-            'supplier_id'    => 'required|exists:suppliers,id',
-            'product_id'     => 'required|exists:products,id',
-            'received_at'    => 'required|date',
+            'no_faktur' => 'required|string|max:100|unique:incoming_transactions,no_faktur',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'product_id' => 'required|exists:products,id',
+            'received_at' => 'required|date',
             'payment_status' => 'required|in:lunas,tempo',
-            'due_date'       => 'nullable|required_if:payment_status,tempo|date|after:received_at',
-            'box_qty'        => 'required|integer|min:1',
-            'price_per_box'  => 'required|numeric|min:1',
+            'due_date' => 'nullable|required_if:payment_status,tempo|date|after:received_at',
+            'box_qty' => 'required|integer|min:1',
+            'price_per_box' => 'required|numeric|min:1',
         ], [
-            'no_faktur.unique'      => 'Nomor faktur sudah terdaftar. Gunakan nomor lain.',
-            'due_date.required_if'  => 'Tanggal jatuh tempo wajib diisi untuk pembayaran tempo.',
+            'no_faktur.unique' => 'Nomor faktur sudah terdaftar. Gunakan nomor lain.',
+            'due_date.required_if' => 'Tanggal jatuh tempo wajib diisi untuk pembayaran tempo.',
         ]);
 
-        $product    = Product::findOrFail($data['product_id']);
-        $totalPcs   = $data['box_qty'] * $product->box_pcs_ratio;
-        $modalPcs   = (int) round(($data['box_qty'] * $data['price_per_box']) / max($totalPcs, 1));
-        $subtotal   = (int) $data['box_qty'] * (int) $data['price_per_box'];
+        $totalPcs = DB::transaction(function () use ($data): int {
+            $product = Product::query()
+                ->lockForUpdate()
+                ->findOrFail($data['product_id']);
+            $totalPcs = $data['box_qty'] * $product->box_pcs_ratio;
+            $modalPcs = (int) round(($data['box_qty'] * $data['price_per_box']) / max($totalPcs, 1));
+            $subtotal = (int) $data['box_qty'] * (int) $data['price_per_box'];
 
-        IncomingTransaction::create([
-            'no_faktur'      => $data['no_faktur'],
-            'supplier_id'    => $data['supplier_id'],
-            'product_id'     => $data['product_id'],
-            'received_at'    => $data['received_at'],
-            'payment_status' => $data['payment_status'],
-            'due_date'       => $data['payment_status'] === 'tempo' ? $data['due_date'] : null,
-            'box_qty'        => $data['box_qty'],
-            'total_pcs'      => $totalPcs,
-            'price_per_box'  => $data['price_per_box'],
-            'price_per_pcs'  => $modalPcs,
-            'subtotal'       => $subtotal,
-        ]);
+            IncomingTransaction::create([
+                'no_faktur' => $data['no_faktur'],
+                'supplier_id' => $data['supplier_id'],
+                'product_id' => $data['product_id'],
+                'received_at' => $data['received_at'],
+                'payment_status' => $data['payment_status'],
+                'due_date' => $data['payment_status'] === 'tempo' ? $data['due_date'] : null,
+                'box_qty' => $data['box_qty'],
+                'total_pcs' => $totalPcs,
+                'price_per_box' => $data['price_per_box'],
+                'price_per_pcs' => $modalPcs,
+                'subtotal' => $subtotal,
+            ]);
+
+            return $totalPcs;
+        });
 
         return redirect()
             ->route('incoming-goods.index')
@@ -124,9 +131,9 @@ class IncomingGoodsController extends Controller
         $product = $transaction->product;
         if ($product->stock_pcs < $transaction->total_pcs) {
             return back()->withErrors([
-                'error' => "Tidak bisa rollback: stok {$product->name} ({$product->stock_pcs} Pcs) " .
-                        "lebih kecil dari total incoming ({$transaction->total_pcs} Pcs). " .
-                        "Sebagian stok sudah terjual lewat Barang Keluar.",
+                'error' => "Tidak bisa rollback: stok {$product->name} ({$product->stock_pcs} Pcs) ".
+                        "lebih kecil dari total incoming ({$transaction->total_pcs} Pcs). ".
+                        'Sebagian stok sudah terjual lewat Barang Keluar.',
             ]);
         }
 

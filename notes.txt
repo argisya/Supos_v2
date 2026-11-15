@@ -1,0 +1,12 @@
+Checklist sebelum final
+
+ 1. Autentikasi dan izin akses: lindungi seluruh rute aplikasi. Tetapkan peran Admin dan Operator, termasuk hak kelola master, impor/ekspor, arsip, dan transaksi.
+ 2. Keamanan ekspor CSV: cegah nilai produk yang diawali karakter rumus spreadsheet agar tidak dijalankan saat CSV dibuka di Excel.
+ 3. Generator SKU: pastikan pembuatan SKU tetap unik saat beberapa pengguna bekerja bersamaan dan tidak perlu memuat seluruh SKU untuk menentukan nomor berikutnya.
+ 4. Aturan arsip: putuskan apakah barang dengan stok tersisa boleh diarsipkan; terapkan peringatan atau larangan sesuai keputusan dan uji perilakunya.
+ 5. Lengkapi tes otomatis: cakup filter/pencarian, aksi massal, pengelolaan kategori, impor dengan baris salah/duplikat, serta ekspor dengan filter dan data berisiko.
+ 6. Uji operasional di lingkungan uji: coba impor menggunakan CSV yang benar-benar akan dipakai, dan uji scanner fisik pada perangkat gudang. Dukungan kamera belum termasuk.
+ 7. Kebijakan rasio: pastikan penguncian rasio setelah transaksi tetap berlaku; untuk jenis kemasan berbeda gunakan SKU baru.
+ 8. Pemeriksaan akhir: jalankan seluruh tes dan build, lalu pastikan alur utama tidak menghasilkan error JavaScript.
+ 
+Syarat utama sebelum data nyata digunakan: akses peran dan keamanan ekspor harus diselesaikan. Impor nyata dan scanner fisik perlu diuji di lingkungan/perangkat target.
