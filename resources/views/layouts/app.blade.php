@@ -1,10 +1,25 @@
 <!DOCTYPE html>
-<html class="dark" lang="id">
+<html lang="id">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>GrosirBox PRO — @yield('title', 'Master Barang')</title>
+
+    {{-- 🔥 FOUC Prevention: set theme SEBELUM CSS load --}}
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                // Default = dark (kalau belum pernah pilih)
+                var isDark = saved === null ? true : saved === 'dark';
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) {
+                // localStorage disabled → fallback ke dark
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,6 +79,33 @@
             });
             document.addEventListener('keydown', event => {
                 if (event.key === 'Escape') setSidebarOpen(false);
+            });
+        })();
+    </script>
+    
+    <script>
+        (function () {
+            var btn  = document.getElementById('themeToggle');
+            var icon = document.getElementById('themeIcon');
+            if (!btn || !icon) return;
+
+            function updateIcon() {
+                // Kalau .dark aktif → icon jadi ☀️ (light_mode) untuk switch ke light
+                // Kalau .dark tidak aktif → icon jadi 🌙 (dark_mode) untuk switch ke dark
+                icon.textContent = document.documentElement.classList.contains('dark')
+                    ? 'light_mode'
+                    : 'dark_mode';
+            }
+
+            // Sinkronkan icon saat page load (localStorage sudah di-set di <head>)
+            updateIcon();
+
+            btn.addEventListener('click', function () {
+                var isDark = document.documentElement.classList.toggle('dark');
+                try {
+                    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                } catch (e) { /* localStorage disabled */ }
+                updateIcon();
             });
         })();
     </script>
