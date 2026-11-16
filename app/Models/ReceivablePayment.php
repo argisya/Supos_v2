@@ -8,8 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ReceivablePayment extends Model
 {
     protected $fillable = [
-        'outgoing_transaction_id', 'customer_id', 'paid_at', 'amount',
-        'payment_method', 'account', 'reference_no', 'notes',
+        'outgoing_transaction_id',
+        'customer_id',
+        'paid_at',
+        'amount',
+        'payment_method',
+        'account',
+        'reference_no',
+        'notes',
     ];
 
     protected $casts = [
@@ -47,7 +53,9 @@ class ReceivablePayment extends Model
         // Auto-journal Kas Masuk
         static::created(function (self $p) {
             $trx = $p->transaction;
-            if (! $trx) return;
+            if (! $trx) {
+                return;
+            }
 
             $account = match (true) {
                 str_contains($p->account ?? '', 'BCA')     => 'bca',
@@ -77,17 +85,16 @@ class ReceivablePayment extends Model
 
     // ============ HELPER ============
 
-    /**
-     * Sync total paid_amount ke OutgoingTransaction induk.
-     * Method ini WAJIB `public` agar bisa dipanggil dari closure event
-     * tanpa edge-case scope PHP.
-     */
     public function syncTransactionPaidAmount(): void
     {
-        if (! $this->outgoing_transaction_id) return;
+        if (! $this->outgoing_transaction_id) {
+            return;
+        }
 
         $trx = OutgoingTransaction::find($this->outgoing_transaction_id);
-        if (! $trx) return;
+        if (! $trx) {
+            return;
+        }
 
         $totalPaid = (float) $trx->payments()->sum('amount');
         $trx->paid_amount = $totalPaid;
@@ -98,6 +105,6 @@ class ReceivablePayment extends Model
             $trx->payment_status = 'tempo';
         }
 
-        $trx->saveQuietly(); // hindari infinite loop event
+        $trx->saveQuietly();
     }
 }

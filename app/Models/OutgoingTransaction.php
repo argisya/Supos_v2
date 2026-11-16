@@ -13,8 +13,8 @@ class OutgoingTransaction extends Model
         'sold_at', 'payment_status', 'due_date',
         'box_qty', 'total_pcs',
         'hpp_per_box', 'sell_per_box', 'hpp_per_pcs', 'sell_per_pcs',
-        'subtotal', 'total_hpp', 'profit', 
-        'paid_amount','payment_account',
+        'subtotal', 'total_hpp', 'profit',
+        'paid_amount', 'payment_account',
     ];
 
     protected $casts = [
@@ -32,6 +32,8 @@ class OutgoingTransaction extends Model
         'paid_amount'  => 'decimal:2',
     ];
 
+    // ============ RELATIONSHIPS ============
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
@@ -44,8 +46,10 @@ class OutgoingTransaction extends Model
 
     public function payments(): HasMany
     {
-        return $this->hasMany(ReceivablePayment::class);
+        return $this->hasMany(ReceivablePayment::class, 'outgoing_transaction_id')->latest('paid_at');
     }
+
+    // ============ ACCESSORS ============
 
     public function getRemainingAttribute(): float
     {
@@ -54,7 +58,9 @@ class OutgoingTransaction extends Model
 
     public function getPaidPctAttribute(): float
     {
-        return $this->subtotal > 0 ? round(($this->paid_amount / $this->subtotal) * 100, 1) : 0;
+        return (float) $this->subtotal > 0
+            ? min(100, round(((float) $this->paid_amount / (float) $this->subtotal) * 100, 1))
+            : 0;
     }
 
     public function getDaysToDueAttribute(): int
@@ -63,7 +69,7 @@ class OutgoingTransaction extends Model
             return 0;
         }
 
-        return (int) now()->startOfDay()->diffInDays($this->due_date, false);
+        return (int) now()->startOfDay()->diffInDays($this->due_date->copy()->startOfDay(), false);
     }
 
     public function getAgingStatusAttribute(): string
@@ -82,11 +88,15 @@ class OutgoingTransaction extends Model
         return 'normal';
     }
 
+    // ============ MODEL EVENTS ============
+
     protected static function booted(): void
     {
         static::creating(function (self $trx) {
-            $product = $trx->product;
-            if (! $product) return;
+            $product = $trx->product ?? Product::find($trx->product_id);
+            if (! $product) {
+                return;
+            }
 
             $newStock = $product->stock_pcs - $trx->total_pcs;
             if ($newStock < 0) {
@@ -101,7 +111,7 @@ class OutgoingTransaction extends Model
             // 1. Potong stok
             $trx->product()->decrement('stock_pcs', $trx->total_pcs);
 
-            // 2. Auto-journal Kas Masuk KALAU langsung lunas
+            // 2. Auto-journal Kas Masuk jika penjualan langsung lunas
             if ($trx->payment_status === 'lunas') {
                 \App\Models\CashIn::create([
                     'code'         => \App\Models\CashIn::generateCode(true),
@@ -112,16 +122,24 @@ class OutgoingTransaction extends Model
                     'source_type'  => self::class,
                     'source_id'    => $trx->id,
                     'reference_no' => $trx->no_invoice,
-                    'notes'        => "Penjualan {$trx->box_qty} Box {$trx->product->name}",
+                    'notes'        => "Penjualan {$trx->box_qty} Box " . ($trx->product?->name ?? ''),
                 ]);
             }
         });
 
+        static::deleting(function (self $trx) {
+            if ($trx->payments()->exists()) {
+                throw new \RuntimeException(
+                    "Transaksi {$trx->no_invoice} sudah memiliki riwayat cicilan piutang. Batalkan cicilan di Buku Tagihan terlebih dahulu."
+                );
+            }
+        });
+
         static::deleted(function (self $trx) {
-            // Kembalikan stok
+            // 1. Kembalikan stok
             $trx->product()->increment('stock_pcs', $trx->total_pcs);
 
-            // Hapus cash_in terkait (kalau bukan dari payment)
+            // 2. Hapus jurnal Kas Masuk terkait penjualan tunai
             \App\Models\CashIn::where('source_type', self::class)
                 ->where('source_id', $trx->id)
                 ->delete();
