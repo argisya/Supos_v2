@@ -23,7 +23,7 @@
         <nav class="px-space-md flex flex-col gap-space-xs overflow-y-auto max-h-[calc(100vh-270px)]">
             @php
                 $navItems = [
-                    ['path' => 'dashboard',      'icon' => 'space_dashboard',       'label' => 'Dashboard'],
+                    ['path' => 'dashboard', 'icon' => 'space_dashboard', 'label' => 'Dashboard', 'route' => 'dashboard.index'],
                     ['path' => 'master-barang',  'icon' => 'category',              'label' => 'Master Barang',  'route' => 'products.index'],
                     ['path' => 'barang-masuk',   'icon' => 'input',                 'label' => 'Barang Masuk',   'route' => 'incoming-goods.index'],
                     ['path' => 'barang-keluar',  'icon' => 'output',                'label' => 'Barang Keluar',  'route' => 'outgoing-goods.index'],
@@ -34,6 +34,7 @@
                 ];
 
                 $currentRoute = match (true) {
+                    request()->routeIs('dashboard.*')      => 'dashboard',
                     request()->routeIs('products.*')       => 'master-barang',
                     request()->routeIs('incoming-goods.*') => 'barang-masuk',
                     request()->routeIs('outgoing-goods.*') => 'barang-keluar',
