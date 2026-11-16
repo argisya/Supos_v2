@@ -52,7 +52,9 @@ Route::prefix('stock')->name('stock.')->group(function () {
 
 // Buku Tagihan
 Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
+Route::get('/receivables/export', [ReceivableController::class, 'export'])->name('receivables.export');
 Route::post('/receivables/{transaction}/pay', [ReceivableController::class, 'pay'])->name('receivables.pay');
+Route::delete('/receivables/payments/{payment}', [ReceivableController::class, 'destroyPayment'])->name('receivables.payments.destroy');
 
 // Kas Masuk
 Route::get('/cash-ins',  [CashInController::class, 'index'])->name('cash-ins.index');
