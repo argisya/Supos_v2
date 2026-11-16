@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             OutgoingTransactionSeeder::class,
             ReceivablePaymentSeeder::class,
             CashInSeeder::class,
+            CashOutSeeder::class,
         ]);
     }
 }

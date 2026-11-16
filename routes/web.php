@@ -6,6 +6,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\CashInController;
+use App\Http\Controllers\CashOutController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('products.index'));
@@ -56,3 +57,8 @@ Route::post('/receivables/{transaction}/pay', [ReceivableController::class, 'pay
 // Kas Masuk
 Route::get('/cash-ins',  [CashInController::class, 'index'])->name('cash-ins.index');
 Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
+
+// Kas Keluar
+Route::get('/cash-outs',  [CashOutController::class, 'index'])->name('cash-outs.index');
+Route::post('/cash-outs', [CashOutController::class, 'store'])->name('cash-outs.store');
+Route::post('/cash-outs/pay-supplier/{transaction}', [CashOutController::class, 'paySupplier'])->name('cash-outs.pay-supplier');
