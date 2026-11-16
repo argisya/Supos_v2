@@ -1,4 +1,4 @@
-<aside id="appSidebar" class="fixed left-0 top-0 h-full w-72 -translate-x-full lg:translate-x-0 transition-transform duration-200 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+<aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-outline-variant/40">
     <div class="flex flex-col gap-space-md">
         <div class="px-margin flex items-center justify-between gap-space-sm">
             <div class="flex items-center gap-space-sm">
@@ -23,7 +23,7 @@
         <nav class="px-space-md flex flex-col gap-space-xs overflow-y-auto max-h-[calc(100vh-270px)]">
             @php
                 $navItems = [
-                    ['path' => 'dashboard',      'icon' => 'space_dashboard',       'label' => 'Dashboard'],
+                    ['path' => 'dashboard', 'icon' => 'space_dashboard', 'label' => 'Dashboard', 'route' => 'dashboard.index'],
                     ['path' => 'master-barang',  'icon' => 'category',              'label' => 'Master Barang',  'route' => 'products.index'],
                     ['path' => 'barang-masuk',   'icon' => 'input',                 'label' => 'Barang Masuk',   'route' => 'incoming-goods.index'],
                     ['path' => 'barang-keluar',  'icon' => 'output',                'label' => 'Barang Keluar',  'route' => 'outgoing-goods.index'],
@@ -34,6 +34,7 @@
                 ];
 
                 $currentRoute = match (true) {
+                    request()->routeIs('dashboard.*')      => 'dashboard',
                     request()->routeIs('products.*')       => 'master-barang',
                     request()->routeIs('incoming-goods.*') => 'barang-masuk',
                     request()->routeIs('outgoing-goods.*') => 'barang-keluar',

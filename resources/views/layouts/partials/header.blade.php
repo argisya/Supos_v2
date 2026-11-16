@@ -15,6 +15,13 @@
             <div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
             <span class="font-label-md text-label-md text-on-surface">Semua Server Sinkron</span>
         </div>
+        <button id="themeToggle"
+                type="button"
+                class="w-9 h-9 rounded-xl bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+                title="Toggle Light/Dark Mode"
+                aria-label="Toggle theme">
+            <span id="themeIcon" class="material-symbols-outlined text-[20px]">dark_mode</span>
+        </button>
         <button class="relative w-9 h-9 rounded-xl bg-surface-container-low hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
             <span class="material-symbols-outlined text-[20px]">notifications</span>
             <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>

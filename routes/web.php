@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncomingGoodsController;
 use App\Http\Controllers\OutgoingGoodsController;
 use App\Http\Controllers\ProductController;
@@ -9,7 +10,9 @@ use App\Http\Controllers\CashInController;
 use App\Http\Controllers\CashOutController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn() => redirect()->route('products.index'));
+// ========== DASHBOARD ==========
+Route::get('/', fn() => redirect()->route('dashboard.index'));
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
 // Master Barang
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
