@@ -13,7 +13,8 @@ class OutgoingTransaction extends Model
         'sold_at', 'payment_status', 'due_date',
         'box_qty', 'total_pcs',
         'hpp_per_box', 'sell_per_box', 'hpp_per_pcs', 'sell_per_pcs',
-        'subtotal', 'total_hpp', 'profit', 'paid_amount',
+        'subtotal', 'total_hpp', 'profit', 
+        'paid_amount','payment_account',
     ];
 
     protected $casts = [
@@ -85,9 +86,7 @@ class OutgoingTransaction extends Model
     {
         static::creating(function (self $trx) {
             $product = $trx->product;
-            if (! $product) {
-                return;
-            }
+            if (! $product) return;
 
             $newStock = $product->stock_pcs - $trx->total_pcs;
             if ($newStock < 0) {
@@ -99,11 +98,33 @@ class OutgoingTransaction extends Model
         });
 
         static::created(function (self $trx) {
+            // 1. Potong stok
             $trx->product()->decrement('stock_pcs', $trx->total_pcs);
+
+            // 2. Auto-journal Kas Masuk KALAU langsung lunas
+            if ($trx->payment_status === 'lunas') {
+                \App\Models\CashIn::create([
+                    'code'         => \App\Models\CashIn::generateCode(true),
+                    'category'     => 'penjualan_tunai',
+                    'account'      => $trx->payment_account ?? 'kas_tunai',
+                    'amount'       => $trx->subtotal,
+                    'received_at'  => $trx->sold_at ?? now(),
+                    'source_type'  => self::class,
+                    'source_id'    => $trx->id,
+                    'reference_no' => $trx->no_invoice,
+                    'notes'        => "Penjualan {$trx->box_qty} Box {$trx->product->name}",
+                ]);
+            }
         });
 
         static::deleted(function (self $trx) {
+            // Kembalikan stok
             $trx->product()->increment('stock_pcs', $trx->total_pcs);
+
+            // Hapus cash_in terkait (kalau bukan dari payment)
+            \App\Models\CashIn::where('source_type', self::class)
+                ->where('source_id', $trx->id)
+                ->delete();
         });
     }
 }

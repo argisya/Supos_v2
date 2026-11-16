@@ -17,6 +17,8 @@ class ReceivablePayment extends Model
         'amount'  => 'decimal:2',
     ];
 
+    // ============ RELATIONSHIPS ============
+
     public function transaction(): BelongsTo
     {
         return $this->belongsTo(OutgoingTransaction::class, 'outgoing_transaction_id');
@@ -27,14 +29,60 @@ class ReceivablePayment extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    // ============ EVENTS ============
+
     protected static function booted(): void
     {
-        static::created(fn (self $p) => $p->syncTransactionPaidAmount());
-        static::updated(fn (self $p) => $p->syncTransactionPaidAmount());
-        static::deleted(fn (self $p) => $p->syncTransactionPaidAmount());
+        // Sync paid_amount ke transaksi induk
+        static::created(function (self $p) {
+            $p->syncTransactionPaidAmount();
+        });
+        static::updated(function (self $p) {
+            $p->syncTransactionPaidAmount();
+        });
+        static::deleted(function (self $p) {
+            $p->syncTransactionPaidAmount();
+        });
+
+        // Auto-journal Kas Masuk
+        static::created(function (self $p) {
+            $trx = $p->transaction;
+            if (! $trx) return;
+
+            $account = match (true) {
+                str_contains($p->account ?? '', 'BCA')     => 'bca',
+                str_contains($p->account ?? '', 'Mandiri') => 'mandiri',
+                default                                    => 'kas_tunai',
+            };
+
+            \App\Models\CashIn::create([
+                'code'         => \App\Models\CashIn::generateCode(true),
+                'category'     => 'pelunasan_piutang',
+                'account'      => $account,
+                'amount'       => $p->amount,
+                'received_at'  => $p->paid_at ?? now(),
+                'source_type'  => self::class,
+                'source_id'    => $p->id,
+                'reference_no' => $trx->no_invoice,
+                'notes'        => "Pelunasan piutang {$trx->customer?->name}",
+            ]);
+        });
+
+        static::deleted(function (self $p) {
+            \App\Models\CashIn::where('source_type', self::class)
+                ->where('source_id', $p->id)
+                ->delete();
+        });
     }
 
-    private function syncTransactionPaidAmount(): void
+    // ============ HELPER ============
+
+    /**
+     * Sync total paid_amount ke OutgoingTransaction induk.
+     * Method ini WAJIB `public` agar bisa dipanggil dari closure event
+     * tanpa edge-case scope PHP.
+     */
+    public function syncTransactionPaidAmount(): void
     {
         if (! $this->outgoing_transaction_id) return;
 
@@ -50,6 +98,6 @@ class ReceivablePayment extends Model
             $trx->payment_status = 'tempo';
         }
 
-        $trx->saveQuietly(); // hindari re-fire 'updated' event berantai
+        $trx->saveQuietly(); // hindari infinite loop event
     }
 }

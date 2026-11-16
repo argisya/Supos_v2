@@ -5,6 +5,7 @@ use App\Http\Controllers\OutgoingGoodsController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\CashInController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('products.index'));
@@ -51,3 +52,7 @@ Route::prefix('stock')->name('stock.')->group(function () {
 // Buku Tagihan
 Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
 Route::post('/receivables/{transaction}/pay', [ReceivableController::class, 'pay'])->name('receivables.pay');
+
+// Kas Masuk
+Route::get('/cash-ins',  [CashInController::class, 'index'])->name('cash-ins.index');
+Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
