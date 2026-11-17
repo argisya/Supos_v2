@@ -15,51 +15,80 @@
 @endphp
 
 @section('content')
+<style>
+@media print {
+    body, html { background: #ffffff !important; color: #111827 !important; }
+    aside, nav, .print\:hidden { display: none !important; }
+    main { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    .bg-surface-container-low,
+    .bg-surface-container,
+    .bg-surface-container-lowest\/50,
+    .bg-surface-container-lowest\/60,
+    .bg-surface-container\/50 {
+        background: #f9fafb !important;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: none !important;
+        color: #111827 !important;
+    }
+    .text-on-surface { color: #111827 !important; }
+    .text-on-surface-variant, .text-outline { color: #4b5563 !important; }
+    .text-primary { color: #059669 !important; }
+    .text-tertiary { color: #d97706 !important; }
+    .text-secondary { color: #2563eb !important; }
+    .text-error { color: #dc2626 !important; }
+}
+</style>
+
 <div class="relative w-full px-space-lg py-space-md">
-<div class="absolute top-2 right-1/4 w-96 h-96 bg-tertiary-container/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
-<div class="absolute top-64 left-10 w-96 h-96 bg-primary-container/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+<div class="absolute top-2 right-1/4 w-96 h-96 bg-tertiary-container/10 rounded-full blur-3xl pointer-events-none -z-10 print:hidden"></div>
+<div class="absolute top-64 left-10 w-96 h-96 bg-primary-container/10 rounded-full blur-3xl pointer-events-none -z-10 print:hidden"></div>
 
 {{-- ============ HEADER ============ --}}
-<header class="flex flex-col xl:flex-row xl:items-center justify-between gap-space-md pb-space-lg">
+<header class="flex flex-col xl:flex-row xl:items-end justify-between gap-space-md pb-space-lg">
     <div class="flex flex-col gap-space-xs">
         <nav class="flex items-center gap-space-xs text-on-surface-variant font-label-md text-label-md">
-            <span>Sistem Grosir</span>
+            <span>SUPOS | Sinar Utama</span>
             <span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
             <span>Manajemen Eksekutif</span>
             <span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-            <span class="text-primary font-bold">Dashboard Overview</span>
+            <span class="text-primary font-semibold">Dashboard Overview</span>
         </nav>
         <div class="flex flex-wrap items-center gap-space-sm pt-0.5">
-            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Executive Overview & Analisis Kinerja Grosir</h1>
+            <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Executive Overview & Analisis Kinerja</h1>
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm shadow-sm">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
-                Update Sinkron: {{ now()->diffForHumans() }} • Multi-Gudang Terhubung
+                Sinkron: {{ now()->diffForHumans() }} • Multi-Gudang Terhubung
             </span>
         </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-space-sm">
-        <div class="flex items-center bg-surface-container-low p-1 rounded-lg shadow-sm">
-            @foreach(['today' => 'Hari Ini', '7d' => '7 Hari Terakhir', 'month' => 'Bulan Ini'] as $key => $label)
+    {{-- TOOLBAR TOMBOL HEADER SEJAJAR PRESISI (h-10) --}}
+    <div class="flex flex-wrap items-center gap-2.5 flex-shrink-0 print:hidden">
+        {{-- Segmented Period Switcher --}}
+        <div class="inline-flex items-center h-10 bg-surface-container-low p-1 rounded-lg shadow-sm border border-surface-container-highest/50">
+            @foreach(['today' => 'Hari Ini', '7d' => '7 Hari', 'month' => 'Bulan Ini'] as $key => $label)
                 @php $isActive = $period === $key; @endphp
                 <a href="{{ route('dashboard.index', ['period' => $key]) }}"
-                   class="px-3 py-1.5 rounded font-label-md text-label-md transition-colors
+                   class="h-8 px-3 rounded-md inline-flex items-center justify-center font-label-md text-label-md whitespace-nowrap transition-all
                    {{ $isActive ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'text-on-surface-variant hover:text-on-surface' }}">
                     {{ $label }}
                 </a>
             @endforeach
         </div>
-        <div class="flex items-center gap-space-xs">
-            <button class="flex items-center gap-space-xs px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md shadow-sm" type="button">
-                <span class="material-symbols-outlined text-tertiary text-[18px]">picture_as_pdf</span>
-                <span>Unduh PDF</span>
-            </button>
-            <a href="{{ route('outgoing-goods.index') }}"
-               class="flex items-center gap-space-xs px-4 py-2 rounded-lg bg-primary-container text-on-primary-container hover:brightness-110 font-label-md text-label-md font-bold shadow-md">
-                <span class="material-symbols-outlined text-[18px]">add_circle</span>
-                <span>Shortcut Transaksi</span>
-            </a>
-        </div>
+
+        {{-- Tombol Unduh PDF --}}
+        <button onclick="window.print()" type="button"
+                class="h-10 px-4 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-sm cursor-pointer transition-colors">
+            <span class="material-symbols-outlined text-tertiary text-[18px]">picture_as_pdf</span>
+            <span>Unduh PDF</span>
+        </button>
+
+        {{-- Tombol Primary: Transaksi Baru --}}
+        <a href="{{ route('outgoing-goods.index') }}"
+           class="h-10 px-4 rounded-lg bg-primary-container text-on-primary-container hover:brightness-110 font-label-md text-label-md font-bold inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-md transition-all">
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Transaksi Baru</span>
+        </a>
     </div>
 </header>
 
@@ -96,7 +125,7 @@
     <div class="bg-surface-container-low rounded-xl p-space-md shadow-md flex flex-col justify-between">
         <div class="flex items-start justify-between">
             <div class="flex flex-col">
-                <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">ESTIMASI LABA (LOCKED HPP)</span>
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">LABA KOTOR (LOCKED HPP)</span>
                 <span class="font-headline-lg text-headline-lg text-tertiary mt-1 tracking-tight">{{ $fmt($periodProfit) }}</span>
             </div>
             <div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-tertiary">
@@ -110,11 +139,11 @@
             </svg>
         </div>
         <div class="flex items-center justify-between pt-space-xs bg-surface-container-lowest/50 -mx-space-md -mb-space-md p-space-md rounded-b-xl">
-            <div class="flex items-center gap-1 text-tertiary font-label-md text-label-md">
-                <span class="material-symbols-outlined text-[16px]">pie_chart</span>
-                <span>Net Margin {{ $marginPct }}%</span>
+            <div class="flex items-center gap-1 text-tertiary font-label-md text-label-md" title="Laba dari transaksi yang sudah lunas">
+                <span class="material-symbols-outlined text-[16px]">verified</span>
+                <span>Lunas: {{ $fmtJt($periodRealizedProfit) }}</span>
             </div>
-            <span class="font-label-sm text-label-sm text-on-surface-variant">Laba Hari Ini: <strong class="text-on-surface">{{ $fmtJt($todayProfit) }}</strong> ({{ $todayMargin }}%)</span>
+            <span class="font-label-sm text-label-sm text-on-surface-variant">Hari Ini: <strong class="text-on-surface">{{ $fmtJt($todayProfit) }}</strong> ({{ $todayMargin }}%)</span>
         </div>
     </div>
 
@@ -203,8 +232,8 @@
                 <div class="mt-space-xs space-y-1">
                     @forelse($criticalStock as $p)
                         @php
-                            $box = $p->stock_pcs / max(1, $p->box_pcs_ratio);
-                            $isEmpty = $p->stock_pcs === 0;
+                            $box = $p->stock_pcs / max(1, (int) $p->box_pcs_ratio);
+                            $isEmpty = (int) $p->stock_pcs === 0;
                         @endphp
                         <div class="flex items-center justify-between text-body-sm text-on-surface-variant bg-surface-container px-2 py-1 rounded">
                             <span class="truncate">{{ $p->name }}</span>
@@ -217,7 +246,7 @@
                     @endforelse
                 </div>
             </div>
-            <a href="{{ route('incoming-goods.index') }}" class="mt-space-md w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+            <a href="{{ route('incoming-goods.index') }}" class="mt-space-md w-full h-9 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm print:hidden">
                 <span class="material-symbols-outlined text-[16px] text-tertiary">add_shopping_cart</span>
                 <span>Buat PO Kulakan Cepat</span>
             </a>
@@ -236,17 +265,20 @@
                 <p class="font-body-md text-on-surface mt-space-sm font-semibold">Piutang Toko Melebihi Batas Tempo</p>
                 <div class="mt-space-xs space-y-1">
                     @forelse($overdueReceivables as $r)
-                        @php $days = (int) $r->due_date->diffInDays(now()->startOfDay()); @endphp
+                        @php
+                            $days = (int) \Illuminate\Support\Carbon::parse($r->due_date)->diffInDays(now()->startOfDay());
+                            $remaining = max(0, (float) $r->subtotal - (float) $r->paid_amount);
+                        @endphp
                         <div class="flex items-center justify-between text-body-sm text-on-surface-variant bg-surface-container px-2 py-1 rounded">
-                            <span class="truncate">{{ $r->customer->name }} ({{ $r->no_invoice }})</span>
-                            <span class="font-label-sm text-error font-bold ml-2">{{ $fmtJt($r->remaining) }} (+{{ $days }} hr)</span>
+                            <span class="truncate">{{ $r->customer?->name ?? 'Pelanggan' }} ({{ $r->no_invoice }})</span>
+                            <span class="font-label-sm text-error font-bold ml-2">{{ $fmtJt($remaining) }} (+{{ $days }} hr)</span>
                         </div>
                     @empty
                         <div class="text-body-sm text-primary py-1">✓ Tidak ada piutang overdue</div>
                     @endforelse
                 </div>
             </div>
-            <a href="{{ route('receivables.index', ['filter' => 'overdue']) }}" class="mt-space-md w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+            <a href="{{ route('receivables.index', ['filter' => 'overdue']) }}" class="mt-space-md w-full h-9 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm print:hidden">
                 <span class="material-symbols-outlined text-[16px] text-primary">chat</span>
                 <span>Tagih Semua via WhatsApp</span>
             </a>
@@ -258,18 +290,21 @@
                 <div class="flex items-center justify-between">
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-variant text-on-surface-variant font-label-sm font-bold">
                         <span class="material-symbols-outlined text-[14px] text-tertiary">event_upcoming</span>
-                        JATUH TEMPO < 5 HARI
+                        JATUH TEMPO &lt; 5 HARI
                     </span>
                     <span class="font-label-md text-label-md text-tertiary font-semibold">{{ $fmt($upcomingTotal) }}</span>
                 </div>
                 <p class="font-body-md text-on-surface mt-space-sm font-semibold">Hutang Distributor Principal Siap Bayar</p>
                 <div class="mt-space-xs space-y-1">
                     @forelse($upcomingPayables as $u)
-                        @php $days = (int) now()->startOfDay()->diffInDays($u->due_date, false); @endphp
+                        @php
+                            $days = (int) now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse($u->due_date), false);
+                            $remaining = max(0, (float) $u->subtotal - (float) $u->paid_amount);
+                        @endphp
                         <div class="flex items-center justify-between text-body-sm text-on-surface-variant bg-surface-container px-2 py-1 rounded">
-                            <span class="truncate">{{ $u->supplier->name }}</span>
+                            <span class="truncate">{{ $u->supplier?->name ?? 'Supplier' }}</span>
                             <span class="font-label-sm font-bold ml-2 {{ $days <= 1 ? 'text-error' : 'text-on-surface' }}">
-                                {{ $fmtJt($u->remaining) }} ({{ $days < 0 ? 'Lewat' : ($days == 0 ? 'Hari Ini' : $days . ' hr') }})
+                                {{ $fmtJt($remaining) }} ({{ $days < 0 ? 'Lewat' : ($days == 0 ? 'Hari Ini' : $days . ' hr') }})
                             </span>
                         </div>
                     @empty
@@ -277,7 +312,7 @@
                     @endforelse
                 </div>
             </div>
-            <a href="{{ route('cash-outs.index') }}" class="mt-space-md w-full py-2 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+            <a href="{{ route('cash-outs.index') }}" class="mt-space-md w-full h-9 px-3 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm print:hidden">
                 <span class="material-symbols-outlined text-[16px] text-primary">outbox</span>
                 <span>Proses Kas Keluar</span>
             </a>
@@ -384,8 +419,8 @@
                         <div class="flex items-center gap-space-sm min-w-0">
                             <span class="w-6 h-6 rounded {{ $i === 0 ? 'bg-primary-container text-on-primary-container' : 'bg-surface-container-high text-on-surface' }} font-label-sm flex items-center justify-center font-bold">{{ $i + 1 }}</span>
                             <div class="flex flex-col min-w-0">
-                                <span class="font-headline-sm text-body-md text-on-surface truncate font-semibold">{{ $tp->product->name }}</span>
-                                <span class="font-label-sm text-on-surface-variant">{{ $tp->product->sku }} • {{ $num($tp->total_box) }} Box Terjual</span>
+                                <span class="font-headline-sm text-body-md text-on-surface truncate font-semibold">{{ $tp->product?->name ?? 'Produk Dihapus' }}</span>
+                                <span class="font-label-sm text-on-surface-variant">{{ $tp->product?->sku ?? '-' }} • {{ $num($tp->total_box) }} Box Terjual</span>
                             </div>
                         </div>
                         <div class="flex flex-col text-right pl-2">
@@ -402,7 +437,7 @@
         </div>
         <div class="mt-space-md pt-space-sm bg-surface-container/50 -mx-space-lg -mb-space-lg px-space-lg pb-space-md rounded-b-xl flex items-center justify-between">
             <span class="font-label-sm text-on-surface-variant">Top 5 SKU menyumbang {{ $topPct }}% dari total laba</span>
-            <a href="{{ route('products.index') }}" class="font-label-sm text-primary hover:underline flex items-center gap-1">
+            <a href="{{ route('products.index') }}" class="font-label-sm text-primary hover:underline flex items-center gap-1 print:hidden">
                 Lihat Katalog
                 <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
             </a>
@@ -419,7 +454,7 @@
             </div>
             <div class="flex flex-col">
                 <span class="font-headline-sm text-on-surface">Aktivitas Transaksi Lintas Modul Terkini</span>
-                <span class="font-body-sm text-on-surface-variant">Audit real-time: Penjualan, PO Kulakan, Pelunasan & Beban Kas</span>
+                <span class="font-body-sm text-on-surface-variant">Audit real-time: Penjualan, Pelunasan Piutang, PO Kulakan & Beban Kas</span>
             </div>
         </div>
         <div class="flex items-center gap-space-xs">
@@ -490,7 +525,7 @@
 
     <div class="mt-space-md pt-space-xs flex items-center justify-between text-on-surface-variant font-label-md">
         <span>Menampilkan {{ $activities->count() }} mutasi terkini</span>
-        <a href="{{ route('cash-ins.index') }}" class="text-primary hover:underline flex items-center gap-1">
+        <a href="{{ route('cash-ins.index') }}" class="text-primary hover:underline flex items-center gap-1 print:hidden">
             Buka Buku Jurnal Lengkap
             <span class="material-symbols-outlined text-[16px]">open_in_new</span>
         </a>
@@ -504,7 +539,7 @@
             <span class="material-symbols-outlined text-[24px]">security</span>
         </div>
         <div class="flex flex-col">
-            <span class="font-headline-sm text-on-surface leading-tight">Protokol Keandalan Sistem GrosirBox PRO</span>
+            <span class="font-headline-sm text-on-surface leading-tight">Protokol Keandalan Sistem SUPOS | Sinar Utama</span>
             <span class="font-body-sm text-on-surface-variant">Setiap box dan pcs terkunci secara matematis • Audit trail tidak dapat diedit manual</span>
         </div>
     </div>
