@@ -27,8 +27,8 @@
             <span class="text-primary font-bold">Kas Keluar (Pengeluaran & Hutang Supplier)</span>
         </nav>
         <div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-surface-container-high text-primary font-label-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-            <span>SINKRONISASI ARUS KAS KELUAR REALTIME • {{ now()->translatedFormat('d M Y • H:i') }} WIB</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            <span>JURNAL DIPERBARUI • {{ now()->translatedFormat('d M Y • H:i') }} WIB</span>
         </div>
     </div>
 
@@ -58,12 +58,12 @@
     {{-- ============ BANNER ============ --}}
     <div class="w-full p-space-md rounded-xl bg-surface-container-low backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-space-md shadow-md">
         <div class="flex items-start md:items-center gap-space-md">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                <span class="material-symbols-outlined text-[24px]">verified_user</span>
+            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <span class="material-symbols-outlined text-[24px]">account_balance_wallet</span>
             </div>
             <div class="flex flex-col">
                 <div class="flex items-center gap-space-xs flex-wrap">
-                    <span class="font-headline-sm text-on-surface font-semibold">Status Verifikasi Kas Keluar: 100% Terverifikasi (ZERO LEAKAGE)</span>
+                    <span class="font-headline-sm text-on-surface font-semibold">Ringkasan Kas Keluar Hari Ini</span>
                 </div>
                 <p class="font-body-sm text-on-surface-variant mt-0.5">
                     Total <span class="text-error font-semibold">{{ $fmt($todayTotal) }}</span> keluar hari ini:
@@ -444,7 +444,7 @@
             <div class="flex flex-col">
                 <div class="flex items-center gap-space-xs">
                     <div class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
-                    <h2 class="font-headline-lg text-headline-md text-on-surface">Jurnal Buku Kas Keluar Realtime</h2>
+                    <h2 class="font-headline-lg text-headline-md text-on-surface">Jurnal Buku Kas Keluar</h2>
                 </div>
                 <p class="font-body-sm text-on-surface-variant mt-0.5">Mutasi uang keluar dari modul Barang Masuk, pelunasan hutang, dan operasional.</p>
             </div>
@@ -548,7 +548,7 @@
                             </td>
                             <td class="py-space-md px-space-md text-center">
                                 <span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary font-label-sm font-semibold">
-                                    {{ $isAuto ? 'TERPOSTING' : 'TERVERIFIKASI' }}
+                                    {{ $isAuto ? 'TERPOSTING' : 'TERCATAT' }}
                                 </span>
                             </td>
                             <td class="py-space-md px-space-md text-center">

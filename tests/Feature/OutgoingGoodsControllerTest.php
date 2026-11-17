@@ -46,6 +46,7 @@ class OutgoingGoodsControllerTest extends TestCase
             'customer_id' => $customer->id,
             'product_id' => $product->id,
             'payment_status' => 'lunas',
+            'payment_account' => 'bca',
             'box_qty' => 1,
             'sell_per_box' => 150000,
         ]);
@@ -62,6 +63,11 @@ class OutgoingGoodsControllerTest extends TestCase
         $this->assertDatabaseHas('products', [
             'id' => $product->id,
             'stock_pcs' => 12,
+        ]);
+        $this->assertDatabaseHas('cash_ins', [
+            'category' => 'penjualan_tunai',
+            'account' => 'bca',
+            'amount' => 150000,
         ]);
     }
 

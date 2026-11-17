@@ -1,4 +1,4 @@
-<aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-outline-variant/40">
+<aside id="appSidebar" class="fixed left-0 top-0 h-full w-72 -translate-x-full lg:translate-x-0 transition-transform duration-300 bg-surface-container-lowest z-50 flex flex-col justify-between py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-outline-variant/40">
     <div class="flex flex-col gap-space-md">
         <div class="px-margin flex items-center justify-between gap-space-sm">
             <div class="flex items-center gap-space-sm">

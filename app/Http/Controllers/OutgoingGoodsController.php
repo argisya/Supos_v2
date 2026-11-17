@@ -17,25 +17,25 @@ class OutgoingGoodsController extends Controller
         $today = OutgoingTransaction::whereDate('sold_at', today());
 
         $kpi = [
-            'today_sales'  => (int) (clone $today)->sum('subtotal'),
-            'today_count'  => (clone $today)->count(),
-            'today_box'    => (int) (clone $today)->sum('box_qty'),
+            'today_sales' => (int) (clone $today)->sum('subtotal'),
+            'today_count' => (clone $today)->count(),
+            'today_box' => (int) (clone $today)->sum('box_qty'),
             'today_profit' => (int) (clone $today)->sum('profit'),
-            'today_hpp'    => (int) (clone $today)->sum('total_hpp'),
-            'today_pcs'    => (int) (clone $today)->sum('total_pcs'),
+            'today_hpp' => (int) (clone $today)->sum('total_hpp'),
+            'today_pcs' => (int) (clone $today)->sum('total_pcs'),
 
-            'lunas_total'  => (int) (clone $today)->where('payment_status', 'lunas')->sum('subtotal'),
-            'lunas_count'  => (clone $today)->where('payment_status', 'lunas')->count(),
+            'lunas_total' => (int) (clone $today)->where('payment_status', 'lunas')->sum('subtotal'),
+            'lunas_count' => (clone $today)->where('payment_status', 'lunas')->count(),
 
-            'tempo_total'  => (int) OutgoingTransaction::where('payment_status', 'tempo')
+            'tempo_total' => (int) OutgoingTransaction::where('payment_status', 'tempo')
                 ->selectRaw('COALESCE(SUM(subtotal - paid_amount), 0) as total')
                 ->value('total'),
-            'tempo_count'  => OutgoingTransaction::where('payment_status', 'tempo')->distinct('customer_id')->count('customer_id'),
-            'tempo_rows'   => OutgoingTransaction::where('payment_status', 'tempo')->count(),
+            'tempo_count' => OutgoingTransaction::where('payment_status', 'tempo')->distinct('customer_id')->count('customer_id'),
+            'tempo_rows' => OutgoingTransaction::where('payment_status', 'tempo')->count(),
 
-            'total_count'  => OutgoingTransaction::count(),
-            'lunas_all'    => OutgoingTransaction::where('payment_status', 'lunas')->count(),
-            'tempo_all'    => OutgoingTransaction::where('payment_status', 'tempo')->count(),
+            'total_count' => OutgoingTransaction::count(),
+            'lunas_all' => OutgoingTransaction::where('payment_status', 'lunas')->count(),
+            'tempo_all' => OutgoingTransaction::where('payment_status', 'tempo')->count(),
         ];
 
         $customers = Customer::orderBy('name')->get();
@@ -87,12 +87,13 @@ class OutgoingGoodsController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'customer_id'    => 'required|exists:customers,id',
-            'product_id'     => 'required|exists:products,id',
+            'customer_id' => 'required|exists:customers,id',
+            'product_id' => 'required|exists:products,id',
             'payment_status' => 'required|in:lunas,tempo',
-            'due_date'       => 'nullable|required_if:payment_status,tempo|date|after_or_equal:today',
-            'box_qty'        => 'required|integer|min:1',
-            'sell_per_box'   => 'required|numeric|min:1',
+            'payment_account' => 'nullable|in:bca,mandiri,kas_tunai',
+            'due_date' => 'nullable|required_if:payment_status,tempo|date|after_or_equal:today',
+            'box_qty' => 'required|integer|min:1',
+            'sell_per_box' => 'required|numeric|min:1',
         ], [
             'due_date.required_if' => 'Tanggal jatuh tempo wajib diisi untuk pembayaran tempo.',
         ]);
@@ -124,44 +125,45 @@ class OutgoingGoodsController extends Controller
             }
 
             $noInvoice = $this->generateInvoiceNo(true);
-            $lastHpp   = (float) $lastIncoming->price_per_box;
-            $sellBox   = (float) $data['sell_per_box'];
-            $boxQty    = (int) $data['box_qty'];
+            $lastHpp = (float) $lastIncoming->price_per_box;
+            $sellBox = (float) $data['sell_per_box'];
+            $boxQty = (int) $data['box_qty'];
 
-            $subtotal   = $boxQty * $sellBox;
-            $totalHpp   = $boxQty * $lastHpp;
-            $profit     = $subtotal - $totalHpp;
-            $isLunas    = $data['payment_status'] === 'lunas';
+            $subtotal = $boxQty * $sellBox;
+            $totalHpp = $boxQty * $lastHpp;
+            $profit = $subtotal - $totalHpp;
+            $isLunas = $data['payment_status'] === 'lunas';
 
             OutgoingTransaction::create([
-                'no_invoice'     => $noInvoice,
-                'customer_id'    => $data['customer_id'],
-                'product_id'     => $product->id,
-                'sold_at'        => now(),
+                'no_invoice' => $noInvoice,
+                'customer_id' => $data['customer_id'],
+                'product_id' => $product->id,
+                'sold_at' => now(),
                 'payment_status' => $data['payment_status'],
-                'due_date'       => $isLunas ? null : $data['due_date'],
-                'box_qty'        => $boxQty,
-                'total_pcs'      => $totalPcs,
-                'hpp_per_box'    => $lastHpp,
-                'sell_per_box'   => $sellBox,
-                'hpp_per_pcs'    => round($lastHpp / $ratio, 2),
-                'sell_per_pcs'   => round($sellBox / $ratio, 2),
-                'subtotal'       => $subtotal,
-                'total_hpp'      => $totalHpp,
-                'profit'         => $profit,
-                'paid_amount'    => $isLunas ? $subtotal : 0,
+                'payment_account' => $isLunas ? ($data['payment_account'] ?? 'kas_tunai') : 'kas_tunai',
+                'due_date' => $isLunas ? null : $data['due_date'],
+                'box_qty' => $boxQty,
+                'total_pcs' => $totalPcs,
+                'hpp_per_box' => $lastHpp,
+                'sell_per_box' => $sellBox,
+                'hpp_per_pcs' => round($lastHpp / $ratio, 2),
+                'sell_per_pcs' => round($sellBox / $ratio, 2),
+                'subtotal' => $subtotal,
+                'total_hpp' => $totalHpp,
+                'profit' => $profit,
+                'paid_amount' => $isLunas ? $subtotal : 0,
             ]);
 
             return [
                 'no_invoice' => $noInvoice,
-                'total_pcs'  => $totalPcs,
-                'profit'     => $profit,
+                'total_pcs' => $totalPcs,
+                'profit' => $profit,
             ];
         });
 
         return redirect()
             ->route('outgoing-goods.index')
-            ->with('success', "Faktur {$result['no_invoice']} tersimpan. Stok -{$result['total_pcs']} Pcs, laba Rp " . number_format($result['profit'], 0, ',', '.') . '.');
+            ->with('success', "Faktur {$result['no_invoice']} tersimpan. Stok -{$result['total_pcs']} Pcs, laba Rp ".number_format($result['profit'], 0, ',', '.').'.');
     }
 
     public function rollback(OutgoingTransaction $transaction)
@@ -186,9 +188,9 @@ class OutgoingGoodsController extends Controller
     public function storeCustomer(Request $request)
     {
         $data = $request->validate([
-            'name'    => 'required|string|max:120|unique:customers,name',
-            'type'    => 'nullable|string|max:60',
-            'phone'   => 'nullable|string|max:30',
+            'name' => 'required|string|max:120|unique:customers,name',
+            'type' => 'nullable|string|max:60',
+            'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string|max:255',
         ], [
             'name.unique' => 'Nama pelanggan/toko mitra sudah terdaftar.',
@@ -198,7 +200,7 @@ class OutgoingGoodsController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'message'  => 'Pelanggan mitra berhasil ditambahkan.',
+                'message' => 'Pelanggan mitra berhasil ditambahkan.',
                 'customer' => $customer,
             ]);
         }
@@ -215,8 +217,8 @@ class OutgoingGoodsController extends Controller
 
     private function generateInvoiceNo(bool $lock = false): string
     {
-        $prefix = 'INV-' . now()->format('Y/m') . '/';
-        $query  = OutgoingTransaction::where('no_invoice', 'like', $prefix . '%');
+        $prefix = 'INV-'.now()->format('Y/m').'/';
+        $query = OutgoingTransaction::where('no_invoice', 'like', $prefix.'%');
 
         if ($lock) {
             $query->lockForUpdate();
@@ -225,6 +227,6 @@ class OutgoingGoodsController extends Controller
         $last = $query->orderByDesc('id')->value('no_invoice');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
-        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }

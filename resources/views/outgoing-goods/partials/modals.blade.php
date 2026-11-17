@@ -112,6 +112,21 @@
                         </div>
                     </div>
 
+                    <div id="cash-account-picker" class="p-space-sm rounded-xl bg-primary-container/10 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+                        <div class="flex flex-col">
+                            <label for="paymentAccountSelect" class="font-label-sm text-on-surface-variant uppercase">Kas / Rekening Penerimaan</label>
+                            <span class="font-body-sm text-on-surface-variant">Jurnal penjualan lunas akan masuk ke akun ini.</span>
+                        </div>
+                        <select name="payment_account" id="paymentAccountSelect"
+                                class="h-10 w-full sm:max-w-xs px-space-md rounded-lg bg-surface-container text-on-surface font-body-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                            @foreach(\App\Models\CashIn::ACCOUNTS as $accountKey => $account)
+                                <option value="{{ $accountKey }}" @selected(old('payment_account', 'kas_tunai') === $accountKey)>
+                                    {{ $account['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     {{-- Tempo Due Picker --}}
                     <div id="tempo-due-picker" class="hidden p-space-sm rounded-xl bg-secondary-container/20 border border-secondary-container/40 flex flex-col sm:flex-row items-center justify-between gap-space-sm">
                         <div class="flex items-center gap-space-sm text-secondary">

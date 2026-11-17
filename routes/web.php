@@ -1,17 +1,17 @@
 <?php
 
+use App\Http\Controllers\CashInController;
+use App\Http\Controllers\CashOutController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IncomingGoodsController;
 use App\Http\Controllers\OutgoingGoodsController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\StockController;
-use App\Http\Controllers\CashInController;
-use App\Http\Controllers\CashOutController;
 use Illuminate\Support\Facades\Route;
 
 // ========== DASHBOARD ==========
-Route::get('/', fn() => redirect()->route('dashboard.index'));
+Route::get('/', fn () => redirect()->route('dashboard.index'));
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
 // Master Barang
@@ -60,10 +60,12 @@ Route::post('/receivables/{transaction}/pay', [ReceivableController::class, 'pay
 Route::delete('/receivables/payments/{payment}', [ReceivableController::class, 'destroyPayment'])->name('receivables.payments.destroy');
 
 // Kas Masuk
-Route::get('/cash-ins',  [CashInController::class, 'index'])->name('cash-ins.index');
+Route::get('/cash-ins', [CashInController::class, 'index'])->name('cash-ins.index');
+Route::get('/cash-ins/export', [CashInController::class, 'export'])->name('cash-ins.export');
 Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
+Route::delete('/cash-ins/{cashIn}', [CashInController::class, 'destroy'])->name('cash-ins.destroy');
 
 // Kas Keluar
-Route::get('/cash-outs',  [CashOutController::class, 'index'])->name('cash-outs.index');
+Route::get('/cash-outs', [CashOutController::class, 'index'])->name('cash-outs.index');
 Route::post('/cash-outs', [CashOutController::class, 'store'])->name('cash-outs.store');
 Route::post('/cash-outs/pay-supplier/{transaction}', [CashOutController::class, 'paySupplier'])->name('cash-outs.pay-supplier');

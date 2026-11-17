@@ -737,17 +737,21 @@
     };
 
     window.setPaymentMode = function (mode) {
+        const inputStatus = $('paymentStatusInput');
+        if (!inputStatus) return;
+
         const lunas = $('pay-lunas-btn');
         const tempo = $('pay-tempo-btn');
         const picker = $('tempo-due-picker');
+        const cashAccountPicker = $('cash-account-picker');
         const routing = $('calcRouting');
-        const inputStatus = $('paymentStatusInput');
         const inputDue = $('dueDateInput');
 
         if (mode === 'lunas') {
             lunas.className = 'h-9 rounded-lg font-headline-sm text-body-sm flex items-center justify-center gap-1 transition-all bg-primary-container text-on-primary-container shadow-sm font-semibold cursor-pointer';
             tempo.className = 'h-9 rounded-lg font-headline-sm text-body-sm flex items-center justify-center gap-1 transition-all text-on-surface-variant hover:text-on-surface cursor-pointer';
             picker.classList.add('hidden');
+            cashAccountPicker.classList.remove('hidden');
             routing.textContent = 'Kas Masuk Toko (Lunas)';
             routing.className = 'text-primary font-bold';
             inputStatus.value = 'lunas';
@@ -756,6 +760,7 @@
             tempo.className = 'h-9 rounded-lg font-headline-sm text-body-sm flex items-center justify-center gap-1 transition-all bg-secondary text-on-secondary shadow-sm font-semibold cursor-pointer';
             lunas.className = 'h-9 rounded-lg font-headline-sm text-body-sm flex items-center justify-center gap-1 transition-all text-on-surface-variant hover:text-on-surface cursor-pointer';
             picker.classList.remove('hidden');
+            cashAccountPicker.classList.add('hidden');
             routing.textContent = 'Buku Tagihan (Piutang Tempo)';
             routing.className = 'text-secondary font-bold';
             inputStatus.value = 'tempo';
