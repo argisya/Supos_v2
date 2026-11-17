@@ -15,7 +15,7 @@ class CashInController extends Controller
     public function index(Request $request)
     {
         $monthStart = now()->startOfMonth();
-        $monthEnd = now()->endOfMonth();
+        $monthEnd   = now()->endOfMonth();
 
         // ============ KPI ============
         $monthTotal = (float) CashIn::whereBetween('received_at', [$monthStart, $monthEnd])->sum('amount');
@@ -68,13 +68,13 @@ class CashInController extends Controller
             ->whereBetween('received_at', [$monthStart, $monthEnd])
             ->sum('amount');
 
-        $reconTotal = $fromSales + $fromReceivable;
+        $reconTotal  = $fromSales + $fromReceivable;
         $reconCashIn = $cashInFromSales + $cashInFromReceivable;
-        $reconOK = abs($reconTotal - $reconCashIn) < 0.01;
+        $reconOK     = abs($reconTotal - $reconCashIn) < 0.01;
 
         // ============ Query Tabel ============
-        $cat = $request->input('category', 'all');
-        $acc = $request->input('account', 'all');
+        $cat  = $request->input('category', 'all');
+        $acc  = $request->input('account', 'all');
         $sort = $request->input('sort', 'latest');
 
         if (! in_array($cat, ['all', 'penjualan_tunai', 'pelunasan_piutang', 'manual'], true)) {
@@ -88,17 +88,17 @@ class CashInController extends Controller
 
         match ($sort) {
             'amount_desc' => $query->orderByDesc('amount'),
-            'amount_asc' => $query->orderBy('amount'),
-            default => $query->orderByDesc('received_at')->orderByDesc('id'),
+            'amount_asc'  => $query->orderBy('amount'),
+            default       => $query->orderByDesc('received_at')->orderByDesc('id'),
         };
 
         $cashIns = $query->paginate(10)->withQueryString();
 
         $tabCounts = [
-            'all' => CashIn::count(),
-            'penjualan_tunai' => CashIn::where('category', 'penjualan_tunai')->count(),
+            'all'               => CashIn::count(),
+            'penjualan_tunai'   => CashIn::where('category', 'penjualan_tunai')->count(),
             'pelunasan_piutang' => CashIn::where('category', 'pelunasan_piutang')->count(),
-            'manual' => CashIn::whereNull('source_id')->count(),
+            'manual'            => CashIn::whereNull('source_id')->count(),
         ];
 
         return view('cash-ins.index', compact(
@@ -113,36 +113,36 @@ class CashInController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'category' => 'required|in:refund_supplier,modal_pemilik,penjualan_palet,pendapatan_non_ops,deposit_kembali',
-            'account' => 'required|in:bca,mandiri,kas_tunai',
-            'amount' => 'required|numeric|min:1',
-            'received_at' => 'nullable|date',
+            'category'     => 'required|in:refund_supplier,modal_pemilik,penjualan_palet,pendapatan_non_ops,deposit_kembali',
+            'account'      => 'required|in:bca,mandiri,kas_tunai',
+            'amount'       => 'required|numeric|min:1',
+            'received_at'  => 'nullable|date',
             'reference_no' => 'nullable|string|max:100',
-            'notes' => 'required|string|max:255',
+            'notes'        => 'required|string|max:255',
         ], [
             'category.required' => 'Pilih kategori penerimaan kas.',
-            'account.required' => 'Pilih akun tujuan kas.',
-            'amount.min' => 'Nominal harus lebih dari 0.',
-            'notes.required' => 'Keterangan wajib diisi untuk audit trail.',
+            'account.required'  => 'Pilih akun tujuan kas.',
+            'amount.min'        => 'Nominal harus lebih dari 0.',
+            'notes.required'    => 'Keterangan wajib diisi untuk audit trail.',
         ]);
 
         DB::transaction(function () use ($data) {
             CashIn::create([
-                'code' => CashIn::generateCode(false),
-                'category' => $data['category'],
-                'account' => $data['account'],
-                'amount' => $data['amount'],
-                'received_at' => $data['received_at'] ?? now(),
-                'source_type' => null,
-                'source_id' => null,
+                'code'         => CashIn::generateCode(false),
+                'category'     => $data['category'],
+                'account'      => $data['account'],
+                'amount'       => $data['amount'],
+                'received_at'  => $data['received_at'] ?? now(),
+                'source_type'  => null,
+                'source_id'    => null,
                 'reference_no' => $data['reference_no'] ?? null,
-                'notes' => $data['notes'],
+                'notes'        => $data['notes'],
             ]);
         });
 
         return redirect()
             ->route('cash-ins.index')
-            ->with('success', 'Penerimaan kas Rp '.number_format($data['amount'], 0, ',', '.').' berhasil dicatat ke '.CashIn::ACCOUNTS[$data['account']]['label'].'.');
+            ->with('success', 'Penerimaan kas Rp ' . number_format($data['amount'], 0, ',', '.') . ' berhasil dicatat ke ' . CashIn::ACCOUNTS[$data['account']]['label'] . '.');
     }
 
     public function destroy(CashIn $cashIn)
@@ -163,18 +163,18 @@ class CashInController extends Controller
 
     public function export(Request $request)
     {
-        $cat = $request->input('category', 'all');
-        $acc = $request->input('account', 'all');
+        $cat  = $request->input('category', 'all');
+        $acc  = $request->input('account', 'all');
         $rows = $this->buildFilteredQuery($request, $cat, $acc)
             ->orderByDesc('received_at')
             ->orderByDesc('id')
             ->get();
 
-        $filename = 'buku-kas-masuk-'.now('Asia/Jakarta')->format('Ymd-His').'.csv';
+        $filename = 'buku-kas-masuk-' . now('Asia/Jakarta')->format('Ymd-His') . '.csv';
 
         return response()->streamDownload(function () use ($rows) {
             $handle = fopen('php://output', 'w');
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
             fputcsv($handle, [
                 'No. Kas Masuk',
@@ -213,17 +213,17 @@ class CashInController extends Controller
     {
         $filters = $request->validate([
             'date_from' => 'nullable|date_format:Y-m-d',
-            'date_to' => 'nullable|date_format:Y-m-d|after_or_equal:date_from',
+            'date_to'   => 'nullable|date_format:Y-m-d|after_or_equal:date_from',
         ], [
-            'date_from.date_format' => 'Format tanggal awal tidak valid.',
-            'date_to.date_format' => 'Format tanggal akhir tidak valid.',
+            'date_from.date_format'  => 'Format tanggal awal tidak valid.',
+            'date_to.date_format'    => 'Format tanggal akhir tidak valid.',
             'date_to.after_or_equal' => 'Tanggal akhir harus sama dengan atau setelah tanggal awal.',
         ]);
 
         $query = CashIn::with(['source' => function (MorphTo $morphTo) {
             $morphTo->morphWith([
                 OutgoingTransaction::class => ['customer', 'product'],
-                ReceivablePayment::class => ['customer', 'transaction'],
+                ReceivablePayment::class   => ['customer', 'transaction'],
             ]);
         }]);
 

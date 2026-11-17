@@ -7,22 +7,21 @@
                 <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' 1;">{{ $reconOK ? 'account_balance' : 'warning' }}</span>
             </div>
             <div class="flex flex-col">
-                <div class="flex items-center gap-space-xs">
-                    <span class="font-headline-sm text-body-lg font-bold text-on-surface">
+                <div class="flex items-center gap-space-xs flex-wrap">
+                    <span class="font-headline-sm text-body-md font-bold text-on-surface">
                         Pemeriksaan Total Jurnal Bulan Ini: {{ $reconOK ? 'Total Cocok' : 'Ada Selisih' }}
                     </span>
-                    <span class="px-2 py-0.5 rounded-full {{ $reconOK ? 'bg-primary/20 text-primary' : 'bg-error/20 text-error' }} font-label-sm uppercase font-bold tracking-wider">
-                        {{ $reconOK ? 'TOTAL SESUAI' : 'PERLU DIPERIKSA' }}
+                    <span class="px-2 py-0.5 rounded-full {{ $reconOK ? 'bg-primary/20 text-primary' : 'bg-error/20 text-error' }} font-label-sm text-label-sm uppercase font-bold tracking-wider">
+                        {{ $reconOK ? 'Total Sesuai' : 'Perlu Diperiksa' }}
                     </span>
                 </div>
-                <p class="font-body-sm text-on-surface-variant mt-0.5">
-                    Perbandingan ini memeriksa total sumber penjualan/piutang dengan total jurnal otomatis, bukan pencocokan mutasi bank satu per satu.
-                    Penjualan: <strong class="text-on-surface font-semibold">{{ $fmtJt($cashInFromSales) }}</strong> • Pelunasan piutang: <strong class="text-on-surface font-semibold">{{ $fmtJt($cashInFromReceivable) }}</strong>.
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                    Penjualan tunai tercatat <strong class="text-on-surface font-semibold">{{ $fmtJt($cashInFromSales) }}</strong> dan pelunasan piutang tercatat <strong class="text-on-surface font-semibold">{{ $fmtJt($cashInFromReceivable) }}</strong> dibandingkan sumber transaksi asal.
                 </p>
             </div>
         </div>
         <div class="flex items-center gap-space-sm self-end md:self-center shrink-0">
-            <span class="font-label-sm text-on-surface-variant font-mono">Σ Sumber: {{ $fmtJt($reconTotal) }} | Σ Kas In: {{ $fmtJt($reconCashIn) }}</span>
+            <span class="font-label-sm text-label-sm text-on-surface-variant font-mono">Σ Sumber: {{ $fmtJt($reconTotal) }} | Σ Kas In: {{ $fmtJt($reconCashIn) }}</span>
         </div>
     </div>
 </div>
@@ -41,26 +40,26 @@
                         {{ $meta['short'] }}
                     </div>
                     <div class="flex flex-col">
-                        <div class="flex items-center gap-2">
-                            <span class="font-headline-sm font-bold text-on-surface">{{ $meta['label'] }}</span>
-                            <span class="px-2 py-0.5 rounded-full {{ $meta['badge'] }} font-label-sm uppercase font-bold">{{ $key === 'kas_tunai' ? 'Tunai Toko' : 'Transfer Hub' }}</span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-headline-sm text-body-md font-bold text-on-surface">{{ $meta['label'] }}</span>
+                            <span class="px-2 py-0.5 rounded-full {{ $meta['badge'] }} font-label-sm text-label-sm uppercase font-bold">{{ $key === 'kas_tunai' ? 'Tunai Toko' : 'Transfer Hub' }}</span>
                         </div>
-                        <span class="font-mono font-body-sm text-on-surface-variant">Akun Internal SUPOS | Sinar Utama</span>
+                        <span class="font-mono font-body-sm text-body-sm text-on-surface-variant">Akun Internal SUPOS | Sinar Utama</span>
                     </div>
                 </div>
             </div>
-            <div class="mt-space-md pt-space-sm border-t border-surface-container-highest flex items-end justify-between gap-2">
+            <div class="mt-space-md pt-space-sm border-t border-surface-container-highest/30 flex items-end justify-between gap-2">
                 <div class="flex flex-col">
-                    <span class="font-label-sm text-on-surface-variant uppercase">Net Mutasi Tercatat</span>
-                    <span class="font-headline-md font-extrabold text-on-surface font-mono">{{ $fmt($balance) }}</span>
-                    <span class="font-label-sm text-on-surface-variant">Belum termasuk saldo awal rekening</span>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Net Mutasi Tercatat</span>
+                    <span class="font-headline-md text-headline-md font-extrabold text-on-surface font-mono">{{ $fmt($balance) }}</span>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Belum termasuk saldo awal rekening</span>
                 </div>
                 <div class="text-right">
-                    <span class="flex items-center justify-end gap-1 font-body-sm text-primary font-bold">
+                    <span class="flex items-center justify-end gap-1 font-body-sm text-body-sm text-primary font-bold">
                         <span class="material-symbols-outlined text-[16px]">arrow_downward</span>
                         +{{ $fmtJt($monthData['total']) }}
                     </span>
-                    <span class="font-label-sm text-on-surface-variant">{{ $monthData['count'] }} Transaksi bln ini</span>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">{{ $monthData['count'] }} Transaksi bln ini</span>
                 </div>
             </div>
         </div>
