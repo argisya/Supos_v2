@@ -10,8 +10,8 @@ class CashOut extends Model
     public const ACCOUNTS = CashIn::ACCOUNTS; // reuse: bca | mandiri | kas_tunai
 
     public const CATEGORIES = [
-        'kulakan_lunas'             => ['label' => 'Kulakan Tunai (COD)',      'color' => 'primary',   'auto' => true],
-        'pelunasan_hutang_supplier' => ['label' => 'Pelunasan Hutang Supplier','color' => 'primary',   'auto' => true],
+        'kulakan_lunas'             => ['label' => 'Kulakan Tunai (COD)',       'color' => 'primary',   'auto' => true],
+        'pelunasan_hutang_supplier' => ['label' => 'Pelunasan Hutang Supplier', 'color' => 'primary',   'auto' => true],
         'biaya_operasional'         => ['label' => 'Biaya Operasional',         'color' => 'tertiary',  'auto' => false],
         'biaya_listrik'             => ['label' => 'Listrik & Utilitas',        'color' => 'tertiary',  'auto' => false],
         'gaji_staff'                => ['label' => 'Gaji & Kasbon Staff',       'color' => 'secondary', 'auto' => false],
@@ -30,7 +30,10 @@ class CashOut extends Model
         'amount'  => 'decimal:2',
     ];
 
-    public function source(): MorphTo { return $this->morphTo(); }
+    public function source(): MorphTo
+    {
+        return $this->morphTo();
+    }
 
     public function getCategoryLabelAttribute(): string
     {
@@ -47,17 +50,19 @@ class CashOut extends Model
         return (bool) ($this->source_id ?? false);
     }
 
-    public static function generateCode(bool $auto = true): string
+    /** Generate kode: KK-YYYY/MM/NNN (auto) | KK-NON-NNN (manual) */
+    public static function generateCode(bool $auto = true, bool $lock = false): string
     {
-        if ($auto) {
-            $prefix = 'KK-' . now()->format('Y/m') . '/';
-            $last = self::where('code', 'like', $prefix . '%')->orderByDesc('id')->value('code');
-            $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
-            return $prefix . str_pad($next, 3, '0', STR_PAD_LEFT);
+        $prefix = $auto ? ('KK-' . now()->format('Y/m') . '/') : 'KK-NON-';
+        $query  = self::where('code', 'like', $prefix . '%')->orderByDesc('id');
+
+        if ($lock) {
+            $query->lockForUpdate();
         }
-        $prefix = 'KK-NON-';
-        $last = self::where('code', 'like', $prefix . '%')->orderByDesc('id')->value('code');
+
+        $last = $query->value('code');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
-        return $prefix . str_pad($next, 3, '0', STR_PAD_LEFT);
+
+        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }

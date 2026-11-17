@@ -33,16 +33,19 @@ class SupplierPayment extends Model
             $p->syncTransactionPaidAmount();
 
             $trx = $p->transaction;
-            if (! $trx) return;
+            if (! $trx) {
+                return;
+            }
 
+            $accRaw  = strtolower(trim($p->account ?? ''));
             $account = match (true) {
-                str_contains($p->account ?? '', 'BCA')     => 'bca',
-                str_contains($p->account ?? '', 'Mandiri') => 'mandiri',
-                default                                    => 'kas_tunai',
+                str_contains($accRaw, 'bca')     => 'bca',
+                str_contains($accRaw, 'mandiri') => 'mandiri',
+                default                          => 'kas_tunai',
             };
 
             CashOut::create([
-                'code'         => CashOut::generateCode(true),
+                'code'         => CashOut::generateCode(true, true),
                 'category'     => 'pelunasan_hutang_supplier',
                 'account'      => $account,
                 'amount'       => $p->amount,
@@ -50,7 +53,7 @@ class SupplierPayment extends Model
                 'source_type'  => self::class,
                 'source_id'    => $p->id,
                 'reference_no' => $trx->no_faktur,
-                'notes'        => "Pelunasan hutang {$trx->supplier?->name}",
+                'notes'        => $p->notes ?: "Pelunasan hutang {$trx->supplier?->name}",
             ]);
         });
 
@@ -66,9 +69,14 @@ class SupplierPayment extends Model
 
     public function syncTransactionPaidAmount(): void
     {
-        if (! $this->incoming_transaction_id) return;
+        if (! $this->incoming_transaction_id) {
+            return;
+        }
+
         $trx = IncomingTransaction::find($this->incoming_transaction_id);
-        if (! $trx) return;
+        if (! $trx) {
+            return;
+        }
 
         $totalPaid = (float) $trx->payments()->sum('amount');
         $trx->paid_amount = $totalPaid;

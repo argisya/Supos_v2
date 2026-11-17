@@ -67,5 +67,7 @@ Route::delete('/cash-ins/{cashIn}', [CashInController::class, 'destroy'])->name(
 
 // Kas Keluar
 Route::get('/cash-outs', [CashOutController::class, 'index'])->name('cash-outs.index');
+Route::get('/cash-outs/export', [CashOutController::class, 'export'])->name('cash-outs.export');
 Route::post('/cash-outs', [CashOutController::class, 'store'])->name('cash-outs.store');
 Route::post('/cash-outs/pay-supplier/{transaction}', [CashOutController::class, 'paySupplier'])->name('cash-outs.pay-supplier');
+Route::delete('/cash-outs/{cashOut}', [CashOutController::class, 'destroy'])->name('cash-outs.destroy');

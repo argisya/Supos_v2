@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use RuntimeException;
 
 class IncomingTransaction extends Model
 {
@@ -48,14 +47,15 @@ class IncomingTransaction extends Model
 
     public function getDaysToDueAttribute(): int
     {
-        if (! $this->due_date) return 0;
+        if (! $this->due_date) {
+            return 0;
+        }
         return (int) now()->startOfDay()->diffInDays($this->due_date, false);
     }
 
     protected static function booted(): void
     {
         static::creating(function (self $trx) {
-            // Kalau lunas di-create, kunci paid_amount = subtotal
             if ($trx->payment_status === 'lunas') {
                 $trx->paid_amount = $trx->subtotal;
                 $trx->due_date = null;
@@ -63,13 +63,11 @@ class IncomingTransaction extends Model
         });
 
         static::created(function (self $trx) {
-            // Tambah stok
             $trx->product()->increment('stock_pcs', $trx->total_pcs);
 
-            // Auto-journal Kas Keluar kalau lunas
             if ($trx->payment_status === 'lunas') {
                 CashOut::create([
-                    'code'         => CashOut::generateCode(true),
+                    'code'         => CashOut::generateCode(true, true),
                     'category'     => 'kulakan_lunas',
                     'account'      => 'kas_tunai',
                     'amount'       => $trx->subtotal,
@@ -77,18 +75,45 @@ class IncomingTransaction extends Model
                     'source_type'  => self::class,
                     'source_id'    => $trx->id,
                     'reference_no' => $trx->no_faktur,
-                    'notes'        => "Kulakan lunas {$trx->box_qty} Box {$trx->product->name}",
+                    'notes'        => "Kulakan lunas {$trx->box_qty} Box {$trx->product?->name}",
                 ]);
             }
         });
 
-        static::deleted(function (self $trx) {
-            // Kurangi stok (guard negatif)
-            $product = $trx->product;
-            $newStock = max(0, $product->stock_pcs - $trx->total_pcs);
-            $product->update(['stock_pcs' => $newStock]);
+        static::updated(function (self $trx) {
+            // Jika dilunasi langsung via tombol payNow() di Barang Masuk
+            if ($trx->wasChanged('payment_status') && $trx->payment_status === 'lunas') {
+                $sisa = max(0, (float) $trx->subtotal - (float) $trx->paid_amount);
+                $alreadyLogged = CashOut::where('source_type', self::class)
+                    ->where('source_id', $trx->id)
+                    ->exists();
 
-            // Hapus CashOut terkait
+                if ($sisa > 0 && ! $alreadyLogged) {
+                    CashOut::create([
+                        'code'         => CashOut::generateCode(true, true),
+                        'category'     => 'pelunasan_hutang_supplier',
+                        'account'      => 'kas_tunai',
+                        'amount'       => $sisa,
+                        'paid_at'      => now(),
+                        'source_type'  => self::class,
+                        'source_id'    => $trx->id,
+                        'reference_no' => $trx->no_faktur,
+                        'notes'        => "Pelunasan langsung faktur {$trx->no_faktur} ({$trx->supplier?->name})",
+                    ]);
+
+                    $trx->paid_amount = $trx->subtotal;
+                    $trx->saveQuietly();
+                }
+            }
+        });
+
+        static::deleted(function (self $trx) {
+            $product = $trx->product;
+            if ($product) {
+                $newStock = max(0, $product->stock_pcs - $trx->total_pcs);
+                $product->update(['stock_pcs' => $newStock]);
+            }
+
             CashOut::where('source_type', self::class)
                 ->where('source_id', $trx->id)
                 ->delete();
