@@ -31,8 +31,10 @@ Route::delete('/categories/{category}', [ProductController::class, 'destroyCateg
 
 // Barang Masuk
 Route::get('/incoming-goods', [IncomingGoodsController::class, 'index'])->name('incoming-goods.index');
+Route::get('/incoming-goods/generate-faktur', [IncomingGoodsController::class, 'generateFaktur'])->name('incoming-goods.generate-faktur');
 Route::get('/incoming-goods/export', [IncomingGoodsController::class, 'export'])->name('incoming-goods.export');
 Route::post('/incoming-goods', [IncomingGoodsController::class, 'store'])->name('incoming-goods.store');
+Route::post('/incoming-goods/suppliers', [IncomingGoodsController::class, 'storeSupplier'])->name('incoming-goods.suppliers.store');
 Route::delete('/incoming-goods/{transaction}', [IncomingGoodsController::class, 'rollback'])->name('incoming-goods.rollback');
 Route::patch('/incoming-goods/{transaction}/pay', [IncomingGoodsController::class, 'payNow'])->name('incoming-goods.pay');
 
