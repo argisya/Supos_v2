@@ -57,8 +57,8 @@ class OutgoingGoodsController extends Controller
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('no_invoice', 'like', "%{$search}%")
-                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('product', fn ($p) => $p->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('customer', fn($c) => $c->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('product', fn($p) => $p->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -75,12 +75,22 @@ class OutgoingGoodsController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $latestTransaction = OutgoingTransaction::orderByDesc('sold_at')
+            ->orderByDesc('id')
+            ->first();
+
         $batchProfit = (int) $transactions->getCollection()->sum('profit');
         $suggestedInvoice = $this->generateInvoiceNo();
 
         return view('outgoing-goods.index', compact(
-            'kpi', 'customers', 'products', 'transactions',
-            'status', 'batchProfit', 'suggestedInvoice'
+            'kpi',
+            'customers',
+            'products',
+            'transactions',
+            'latestTransaction',
+            'status',
+            'batchProfit',
+            'suggestedInvoice'
         ));
     }
 
@@ -118,7 +128,7 @@ class OutgoingGoodsController extends Controller
                 ->orderByDesc('id')
                 ->first();
 
-            if (! $lastIncoming || (float) $lastIncoming->price_per_box <= 0) {
+            if (!$lastIncoming || (float) $lastIncoming->price_per_box <= 0) {
                 throw ValidationException::withMessages([
                     'product_id' => 'Produk belum memiliki riwayat HPP di Barang Masuk. Input Barang Masuk terlebih dahulu.',
                 ]);
@@ -163,7 +173,7 @@ class OutgoingGoodsController extends Controller
 
         return redirect()
             ->route('outgoing-goods.index')
-            ->with('success', "Faktur {$result['no_invoice']} tersimpan. Stok -{$result['total_pcs']} Pcs, laba Rp ".number_format($result['profit'], 0, ',', '.').'.');
+            ->with('success', "Faktur {$result['no_invoice']} tersimpan. Stok -{$result['total_pcs']} Pcs, laba Rp " . number_format($result['profit'], 0, ',', '.') . '.');
     }
 
     public function rollback(OutgoingTransaction $transaction)
@@ -217,16 +227,16 @@ class OutgoingGoodsController extends Controller
 
     private function generateInvoiceNo(bool $lock = false): string
     {
-        $prefix = 'INV-'.now()->format('Y/m').'/';
-        $query = OutgoingTransaction::where('no_invoice', 'like', $prefix.'%');
+        $prefix = 'INV-' . now()->format('Y/m') . '/';
+        $query = OutgoingTransaction::where('no_invoice', 'like', $prefix . '%');
 
         if ($lock) {
             $query->lockForUpdate();
         }
 
-        $last = $query->orderByDesc('id')->value('no_invoice');
+        $last = $query->orderByDesc('no_invoice')->value('no_invoice');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
-        return $prefix.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 }
