@@ -6,6 +6,7 @@ use App\Models\OutgoingTransaction;
 use App\Models\ReceivablePayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ReceivableController extends Controller
 {
@@ -17,7 +18,7 @@ class ReceivableController extends Controller
 
         // ============ KPI ============
         $totalReceivable = (float) $baseTempo->clone()->sum(DB::raw('subtotal - paid_amount'));
-        $totalInvoices   = $baseTempo->clone()->count();
+        $totalInvoices = $baseTempo->clone()->count();
 
         $dueSoon = (float) $baseTempo->clone()
             ->whereBetween('due_date', [now()->startOfDay(), now()->addDays(3)->endOfDay()])
@@ -45,14 +46,14 @@ class ReceivableController extends Controller
 
         $notDueCount = max(0, $totalInvoices - $overdueCount - $dueSoonCount);
 
-        $weekStart    = now()->startOfWeek();
+        $weekStart = now()->startOfWeek();
         $paidThisWeek = (float) ReceivablePayment::whereBetween('paid_at', [$weekStart, now()])->sum('amount');
-        $paidWeekCnt  = ReceivablePayment::whereBetween('paid_at', [$weekStart, now()])
+        $paidWeekCnt = ReceivablePayment::whereBetween('paid_at', [$weekStart, now()])
             ->distinct('outgoing_transaction_id')
             ->count('outgoing_transaction_id');
 
         $paidMonthCnt = OutgoingTransaction::where('payment_status', 'lunas')
-            ->whereHas('payments', fn ($p) => $p->where('paid_at', '>=', now()->startOfMonth()))
+            ->whereHas('payments', fn($p) => $p->where('paid_at', '>=', now()->startOfMonth()))
             ->count();
 
         // ============ AGING & RATA-RATA TEMPO DINAMIS ============
@@ -68,20 +69,20 @@ class ReceivableController extends Controller
                 ->where('sold_at', '<', now()->subDays(30))
                 ->sum(DB::raw('subtotal - paid_amount')),
         ];
-        $aging['lancar_count']   = $baseTempo->clone()->where('sold_at', '>=', now()->subDays(14))->count();
-        $aging['warning_count']  = $baseTempo->clone()->whereBetween('sold_at', [now()->subDays(30), now()->subDays(15)])->count();
+        $aging['lancar_count'] = $baseTempo->clone()->where('sold_at', '>=', now()->subDays(14))->count();
+        $aging['warning_count'] = $baseTempo->clone()->whereBetween('sold_at', [now()->subDays(30), now()->subDays(15)])->count();
         $aging['critical_count'] = $baseTempo->clone()->where('sold_at', '<', now()->subDays(30))->count();
 
         $agingSum = max(0.01, $aging['lancar'] + $aging['warning'] + $aging['critical']);
-        $aging['lancar_pct']   = round(($aging['lancar'] / $agingSum) * 100, 1);
-        $aging['warning_pct']  = round(($aging['warning'] / $agingSum) * 100, 1);
+        $aging['lancar_pct'] = round(($aging['lancar'] / $agingSum) * 100, 1);
+        $aging['warning_pct'] = round(($aging['warning'] / $agingSum) * 100, 1);
         $aging['critical_pct'] = round(($aging['critical'] / $agingSum) * 100, 1);
 
         $tempoTrxDates = $baseTempo->clone()
             ->whereNotNull('due_date')
             ->get(['sold_at', 'due_date']);
         $avgTempoDays = $tempoTrxDates->isNotEmpty()
-            ? round($tempoTrxDates->avg(fn ($t) => max(1, $t->sold_at->startOfDay()->diffInDays($t->due_date->startOfDay()))), 1)
+            ? round($tempoTrxDates->avg(fn($t) => max(1, $t->sold_at->startOfDay()->diffInDays($t->due_date->startOfDay()))), 1)
             : 14.0;
 
         // ============ TOP 5 MITRA PIUTANG TERBESAR ============
@@ -102,7 +103,7 @@ class ReceivableController extends Controller
 
         // ============ QUERY TABEL DENGAN FILTER ============
         $filter = $request->input('filter', 'all');
-        $query  = $this->buildFilteredQuery($request, $filter);
+        $query = $this->buildFilteredQuery($request, $filter);
 
         $transactions = $query->paginate(10)->withQueryString();
 
@@ -114,28 +115,46 @@ class ReceivableController extends Controller
             ->get();
 
         $priorityWaTrx = $allTempoTrx->filter(
-            fn ($t) => in_array($t->aging_status, ['overdue', 'due_soon'], true)
+            fn($t) => in_array($t->aging_status, ['overdue', 'due_soon'], true)
         )->values();
 
         return view('receivables.index', compact(
-            'totalReceivable', 'totalInvoices', 'notDueCount',
-            'dueSoon', 'dueSoonCount', 'dueSoonCustomers',
-            'overdue', 'overdueCount', 'overdueCustomers',
-            'paidThisWeek', 'paidWeekCnt', 'paidMonthCnt',
-            'aging', 'avgTempoDays', 'topDebtors',
-            'transactions', 'filter', 'allTempoTrx', 'priorityWaTrx'
+            'totalReceivable',
+            'totalInvoices',
+            'notDueCount',
+            'dueSoon',
+            'dueSoonCount',
+            'dueSoonCustomers',
+            'overdue',
+            'overdueCount',
+            'overdueCustomers',
+            'paidThisWeek',
+            'paidWeekCnt',
+            'paidMonthCnt',
+            'aging',
+            'avgTempoDays',
+            'topDebtors',
+            'transactions',
+            'filter',
+            'allTempoTrx',
+            'priorityWaTrx'
         ));
     }
 
     public function pay(Request $request, OutgoingTransaction $transaction)
     {
         $data = $request->validate([
-            'amount'         => 'required|numeric|min:1',
-            'paid_at'        => 'required|date',
+            'amount' => 'required|numeric|min:1',
+            'paid_at' => 'required|date',
             'payment_method' => 'nullable|string|in:Transfer Bank,Kas Tunai',
-            'account'        => 'required|string|max:100',
-            'reference_no'   => 'nullable|string|max:100',
-            'notes'          => 'nullable|string|max:255',
+            'account' => 'required|string|max:100',
+            'reference_no' => 'nullable|string|max:100',
+            'proof_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'notes' => 'nullable|string|max:255',
+        ], [
+            'proof_image.image' => 'File bukti transfer harus berupa gambar.',
+            'proof_image.mimes' => 'Format gambar yang didukung hanya JPG, JPEG, PNG, atau WEBP.',
+            'proof_image.max' => 'Ukuran gambar bukti transfer maksimal 5 MB.',
         ]);
 
         if ($transaction->payment_status === 'lunas' || $transaction->remaining <= 0) {
@@ -155,18 +174,31 @@ class ReceivableController extends Controller
 
         $method = str_contains($data['account'], 'Tunai') ? 'Kas Tunai' : 'Transfer Bank';
 
-        DB::transaction(function () use ($transaction, $data, $method) {
-            ReceivablePayment::create([
-                'outgoing_transaction_id' => $transaction->id,
-                'customer_id'             => $transaction->customer_id,
-                'paid_at'                 => $data['paid_at'],
-                'amount'                  => $data['amount'],
-                'payment_method'          => $data['payment_method'] ?? $method,
-                'account'                 => $data['account'],
-                'reference_no'            => $data['reference_no'] ?? null,
-                'notes'                   => $data['notes'] ?? null,
-            ]);
-        });
+        $proofPath = null;
+        if ($request->hasFile('proof_image')) {
+            $proofPath = $request->file('proof_image')->store('receivable-proofs', 'public');
+        }
+
+        try {
+            DB::transaction(function () use ($transaction, $data, $method, $proofPath) {
+                ReceivablePayment::create([
+                    'outgoing_transaction_id' => $transaction->id,
+                    'customer_id' => $transaction->customer_id,
+                    'paid_at' => $data['paid_at'],
+                    'amount' => $data['amount'],
+                    'payment_method' => $data['payment_method'] ?? $method,
+                    'account' => $data['account'],
+                    'reference_no' => $data['reference_no'] ?? null,
+                    'proof_image' => $proofPath,
+                    'notes' => $data['notes'] ?? null,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            if ($proofPath && Storage::disk('public')->exists($proofPath)) {
+                Storage::disk('public')->delete($proofPath);
+            }
+            throw $e;
+        }
 
         return redirect()
             ->route('receivables.index')
@@ -176,7 +208,7 @@ class ReceivableController extends Controller
     public function destroyPayment(ReceivablePayment $payment)
     {
         $noInvoice = $payment->transaction?->no_invoice ?? '-';
-        $amount    = number_format((float) $payment->amount, 0, ',', '.');
+        $amount = number_format((float) $payment->amount, 0, ',', '.');
 
         DB::transaction(function () use ($payment) {
             $payment->delete();
@@ -189,7 +221,7 @@ class ReceivableController extends Controller
 
     public function export(Request $request)
     {
-        $filter       = $request->input('filter', 'all');
+        $filter = $request->input('filter', 'all');
         $transactions = $this->buildFilteredQuery($request, $filter)->get();
 
         $filename = 'laporan-piutang-' . now('Asia/Jakarta')->format('Ymd-His') . '.csv';
@@ -243,28 +275,28 @@ class ReceivableController extends Controller
         $query = OutgoingTransaction::with(['customer', 'product', 'payments']);
 
         match ($filter) {
-            'not_due'  => $query->where('payment_status', 'tempo')->where('due_date', '>', now()->addDays(3)->endOfDay()),
+            'not_due' => $query->where('payment_status', 'tempo')->where('due_date', '>', now()->addDays(3)->endOfDay()),
             'due_soon' => $query->where('payment_status', 'tempo')->whereBetween('due_date', [now()->startOfDay(), now()->addDays(3)->endOfDay()]),
-            'overdue'  => $query->where('payment_status', 'tempo')->where('due_date', '<', now()->startOfDay()),
-            'paid'     => $query->where('payment_status', 'lunas')
-                                ->whereHas('payments', fn ($p) => $p->where('paid_at', '>=', now()->startOfMonth())),
-            default    => ($filter = 'all') && $query->where('payment_status', 'tempo')->whereRaw('paid_amount < subtotal'),
+            'overdue' => $query->where('payment_status', 'tempo')->where('due_date', '<', now()->startOfDay()),
+            'paid' => $query->where('payment_status', 'lunas')
+                ->whereHas('payments', fn($p) => $p->where('paid_at', '>=', now()->startOfMonth())),
+            default => ($filter = 'all') && $query->where('payment_status', 'tempo')->whereRaw('paid_amount < subtotal'),
         };
 
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('no_invoice', 'like', "%{$search}%")
-                  ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$search}%")
-                      ->orWhere('pic_name', 'like', "%{$search}%"));
+                    ->orWhereHas('customer', fn($c) => $c->where('name', 'like', "%{$search}%")
+                        ->orWhere('pic_name', 'like', "%{$search}%"));
             });
         }
 
         $sort = $request->input('sort', 'due_asc');
         match ($sort) {
             'remaining_desc' => $query->orderByRaw('(subtotal - paid_amount) DESC'),
-            'amount_desc'    => $query->orderByDesc('subtotal'),
-            'oldest'         => $query->orderBy('sold_at'),
-            default          => $query->orderByRaw('due_date IS NULL, due_date ASC'),
+            'amount_desc' => $query->orderByDesc('subtotal'),
+            'oldest' => $query->orderBy('sold_at'),
+            default => $query->orderByRaw('due_date IS NULL, due_date ASC'),
         };
 
         return $query;

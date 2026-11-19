@@ -252,10 +252,15 @@
                                             'no_invoice' => $trx->no_invoice,
                                             'customer' => $trx->customer->name,
                                             'customer_type' => $trx->customer->type ?? 'Mitra Grosir',
-                                            'sold_at' => $trx->sold_at->format('d F Y • \P\u\k\u\l H:i') . ' WIB',
+                                            'sold_at' =>
+                                                $trx->sold_at
+                                                    ->timezone('Asia/Jakarta')
+                                                    ->format('d F Y • \P\u\k\u\l H:i') . ' WIB',
                                             'status' => $isLunas ? 'LUNAS (KAS MASUK)' : 'TEMPO / PIUTANG',
                                             'is_lunas' => $isLunas,
-                                            'due_date' => $trx->due_date?->format('d F Y') ?? 'Lunas Tunai / Transfer',
+                                            'due_date' =>
+                                                $trx->due_date?->timezone('Asia/Jakarta')->format('d F Y') ??
+                                                'Lunas Tunai / Transfer',
                                             'sku' => $trx->product->sku,
                                             'ratio' => $trx->product->box_pcs_ratio,
                                             'product' => $trx->product->name,
@@ -282,7 +287,8 @@
                                                 <span
                                                     class="font-label-md text-label-md text-on-surface font-bold">{{ $trx->no_invoice }}</span>
                                                 <span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
-                                                    {{ $trx->sold_at->format('d M Y • H:i') }}
+                                                    {{ $trx->sold_at->timezone('Asia/Jakarta')->format('d M Y • H:i') }}
+                                                    WIB
                                                 </span>
                                             </div>
                                         </td>
@@ -351,7 +357,8 @@
                                                     <div
                                                         class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error/15 text-error font-label-sm text-label-sm font-bold">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-error"></span>
-                                                        <span>Tempo {{ $trx->due_date?->format('d M') }}</span>
+                                                        <span>Tempo
+                                                            {{ $trx->due_date?->timezone('Asia/Jakarta')->format('d M') }}</span>
                                                     </div>
                                                     <span
                                                         class="font-label-sm text-label-sm text-error font-semibold mt-0.5">
@@ -459,26 +466,38 @@
             const formatThousands = num => num > 0 ? Math.round(num).toLocaleString('id-ID') : '';
             let pendingConfirmCallback = null;
 
-            /* ============ JAM & TANGGAL REALTIME (WIB) ============ */
+            /* ============ JAM & TANGGAL REALTIME (ASIA/JAKARTA / WIB) ============ */
             function updateRealtimeClocks() {
                 const now = new Date();
-                const pad = n => String(n).padStart(2, '0');
+                const parts = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Jakarta',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                }).formatToParts(now);
 
+                const get = type => parts.find(p => p.type === type)?.value || '00';
                 const shortDateTime =
-                    `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} • ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} WIB`;
+                    `${get('day')}/${get('month')}/${get('year')} • ${get('hour')}:${get('minute')}:${get('second')} WIB`;
+
                 const saleInput = $('liveSaleDateTime');
                 if (saleInput) saleInput.textContent = shortDateTime;
 
                 const dailyClock = $('liveDailyProfitClock');
                 if (dailyClock) {
                     const fullDate = now.toLocaleDateString('id-ID', {
+                        timeZone: 'Asia/Jakarta',
                         weekday: 'long',
                         day: '2-digit',
                         month: 'long',
                         year: 'numeric',
                     });
                     dailyClock.textContent =
-                        `${fullDate} • Pukul ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} WIB`;
+                        `${fullDate} • Pukul ${get('hour')}:${get('minute')}:${get('second')} WIB`;
                 }
             }
 

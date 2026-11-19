@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class ReceivablePayment extends Model
 {
@@ -15,13 +16,25 @@ class ReceivablePayment extends Model
         'payment_method',
         'account',
         'reference_no',
+        'proof_image',
         'notes',
     ];
 
     protected $casts = [
         'paid_at' => 'datetime',
-        'amount'  => 'decimal:2',
+        'amount' => 'decimal:2',
     ];
+
+    // ============ ACCESSORS ============
+
+    public function getProofImageUrlAttribute(): ?string
+    {
+        if (!$this->proof_image) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->proof_image);
+    }
 
     // ============ RELATIONSHIPS ============
 
@@ -48,31 +61,35 @@ class ReceivablePayment extends Model
         });
         static::deleted(function (self $p) {
             $p->syncTransactionPaidAmount();
+
+            if ($p->proof_image && Storage::disk('public')->exists($p->proof_image)) {
+                Storage::disk('public')->delete($p->proof_image);
+            }
         });
 
         // Auto-journal Kas Masuk
         static::created(function (self $p) {
             $trx = $p->transaction;
-            if (! $trx) {
+            if (!$trx) {
                 return;
             }
 
             $account = match (true) {
-                str_contains($p->account ?? '', 'BCA')     => 'bca',
+                str_contains($p->account ?? '', 'BCA') => 'bca',
                 str_contains($p->account ?? '', 'Mandiri') => 'mandiri',
-                default                                    => 'kas_tunai',
+                default => 'kas_tunai',
             };
 
             \App\Models\CashIn::create([
-                'code'         => \App\Models\CashIn::generateCode(true),
-                'category'     => 'pelunasan_piutang',
-                'account'      => $account,
-                'amount'       => $p->amount,
-                'received_at'  => $p->paid_at ?? now(),
-                'source_type'  => self::class,
-                'source_id'    => $p->id,
+                'code' => \App\Models\CashIn::generateCode(true),
+                'category' => 'pelunasan_piutang',
+                'account' => $account,
+                'amount' => $p->amount,
+                'received_at' => $p->paid_at ?? now(),
+                'source_type' => self::class,
+                'source_id' => $p->id,
                 'reference_no' => $trx->no_invoice,
-                'notes'        => "Pelunasan piutang {$trx->customer?->name}",
+                'notes' => "Pelunasan piutang {$trx->customer?->name}",
             ]);
         });
 
@@ -87,12 +104,12 @@ class ReceivablePayment extends Model
 
     public function syncTransactionPaidAmount(): void
     {
-        if (! $this->outgoing_transaction_id) {
+        if (!$this->outgoing_transaction_id) {
             return;
         }
 
         $trx = OutgoingTransaction::find($this->outgoing_transaction_id);
-        if (! $trx) {
+        if (!$trx) {
             return;
         }
 
