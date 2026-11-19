@@ -18,9 +18,7 @@
         <header class="flex flex-col gap-space-sm pt-space-md mb-space-lg">
             <div class="flex items-center justify-between flex-wrap gap-space-sm">
                 <nav class="flex items-center gap-space-xs text-on-surface-variant font-label-md text-label-md">
-                    <span class="hover:text-on-surface transition-colors cursor-pointer">Sistem Grosir</span>
-                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-                    <span class="hover:text-on-surface transition-colors cursor-pointer">Master Data</span>
+                    <span>Master Data</span>
                     <span class="material-symbols-outlined text-[14px]">chevron_right</span>
                     <span class="text-primary font-semibold">Katalog Produk</span>
                 </nav>
@@ -28,30 +26,26 @@
                     class="flex items-center gap-space-xs bg-surface-container-high px-space-md py-1 rounded-full border border-outline-variant/30">
                     <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
                     <span class="font-label-md text-label-md text-on-surface font-semibold tracking-wide">
-                        {{ $stats['total_sku'] }} Item Aktif Terdaftar
+                        {{ $stats['total_sku'] }} Produk Terdaftar
                     </span>
                 </div>
             </div>
 
             <div class="flex items-start justify-between flex-wrap gap-space-lg mt-space-xs">
                 <div class="flex flex-col max-w-2xl">
-                    <h1
-                        class="font-headline-lg text-headline-lg text-on-surface tracking-tight flex items-center gap-space-sm">
-                        Master Barang & Standardisasi Box
-                        <span
-                            class="bg-primary/10 text-primary text-label-sm font-label-sm px-space-xs py-0.5 rounded border border-primary/20">RULE
-                            ENGINE</span>
+                    <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+                        Master Barang & Konversi Box
                     </h1>
                     <p class="font-body-md text-body-md text-on-surface-variant mt-1 leading-relaxed">
-                        Kamus referensi konversi baku <span
+                        Aturan isi per box (<span
                             class="font-label-md text-on-surface text-label-sm px-1.5 py-0.5 bg-surface-container-highest rounded">1
-                            BOX = X PCS</span>. Seluruh modul inventori, kasir, dan gudang mengacu pada master data ini
-                        tanpa perlu kalkulasi manual staf.
+                            BOX = X PCS</span>) berlaku otomatis untuk seluruh transaksi Barang Masuk, Barang Keluar, dan
+                        Stok.
                     </p>
                 </div>
                 <div class="flex items-center gap-space-sm flex-wrap">
                     <a id="productExportLink" href="{{ route('products.export', request()->query()) }}"
-                        class="h-10 px-space-md rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-body-sm text-body-sm flex items-center gap-space-xs transition-colors shadow-sm">
+                        class="h-10 px-space-md rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/20 text-on-surface font-body-sm text-body-sm flex items-center gap-space-xs transition-colors shadow-sm">
                         <span class="material-symbols-outlined text-[18px] text-tertiary">download</span>
                         <span>Export CSV</span>
                     </a>
@@ -60,14 +54,8 @@
                         <span class="material-symbols-outlined text-[18px] text-tertiary">upload_file</span>
                         <span>Import CSV</span>
                     </button>
-                    <button id="btnOpenScanner"
-                        class="h-10 px-space-md rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-body-sm text-body-sm flex items-center gap-space-xs transition-colors shadow-sm cursor-pointer"
-                        type="button">
-                        <span class="material-symbols-outlined text-[18px] text-secondary">qr_code_scanner</span>
-                        <span>Scan Barcode SKU</span>
-                    </button>
                     <button id="btnOpenModal"
-                        class="h-10 px-space-lg rounded-xl bg-linear-to-r from-secondary-container via-primary-container to-primary text-on-primary-container font-headline-sm text-headline-sm flex items-center gap-space-xs shadow-[0_8px_24px_rgba(16,185,129,0.35)] hover:shadow-[0_8px_32px_rgba(16,185,129,0.5)] active:scale-95 transition-all cursor-pointer"
+                        class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-headline-sm font-bold flex items-center gap-space-xs shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
                         type="button">
                         <span class="material-symbols-outlined text-[20px]">add_circle</span>
                         <span>Tambah Barang Baru</span>
@@ -76,65 +64,55 @@
             </div>
         </header>
 
-        {{-- ============ BANNER INFO ============ --}}
-        <section class="mb-space-lg rounded-xl bg-surface-container-low/70 backdrop-blur-xl p-space-lg shadow-md">
-            <div class="flex flex-col lg:flex-row items-stretch justify-between gap-space-lg">
-                <div class="flex items-start gap-space-md flex-1">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-tertiary/15 flex items-center justify-center shrink-0 text-tertiary shadow-[0_0_16px_rgba(76,215,246,0.2)]">
-                        <span class="material-symbols-outlined text-[26px]">verified</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <div class="flex items-center gap-space-xs">
-                            <span class="font-headline-sm text-headline-sm text-on-surface">Pemisahan Domain: Master
-                                Spesifikasi Murni</span>
-                            <span
-                                class="font-label-sm text-label-sm text-tertiary uppercase tracking-wider bg-tertiary/10 px-2 py-0.5 rounded-full">Kaidah
-                                Akuntansi</span>
-                        </div>
-                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-relaxed">
-                            Halaman ini <strong class="text-on-surface font-semibold">TIDAK</strong> mengikat saldo modal
-                            ataupun kuantitas fisik gudang. Harga modal dicatat pada Barang Masuk, harga jual di Barang
-                            Keluar, dan saldo fisik di Stok Barang.
-                        </p>
+        {{-- ============ RINGKASAN KATALOG ============ --}}
+        <section class="mb-space-lg grid grid-cols-2 lg:grid-cols-4 gap-space-sm">
+            <div
+                class="bg-surface-container-low border border-outline-variant/15 p-space-md rounded-xl flex items-center justify-between">
+                <div>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Total Produk</span>
+                    <div class="flex items-baseline gap-1.5 mt-1">
+                        <span
+                            class="font-display-lg text-headline-lg text-primary leading-none">{{ $stats['total_sku'] }}</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">SKU</span>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm shrink-0 lg:w-5/12">
-                    <div class="bg-surface-container p-space-sm rounded-xl flex flex-col justify-between">
-                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Total SKU Aktif</span>
-                        <div class="flex items-baseline gap-1 mt-1">
-                            <span
-                                class="font-display-lg text-headline-lg text-primary leading-none">{{ $stats['total_sku'] }}</span>
-                            <span class="font-label-sm text-label-sm text-on-surface-variant">Produk</span>
-                        </div>
-                    </div>
-                    <div class="bg-surface-container p-space-sm rounded-xl flex flex-col justify-between">
-                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Rata2 Konversi</span>
-                        <div class="flex items-baseline gap-1 mt-1">
-                            <span
-                                class="font-display-lg text-headline-lg text-tertiary leading-none">{{ $stats['avg_ratio'] }}</span>
-                            <span class="font-label-sm text-label-sm text-on-surface-variant">Pcs/Box</span>
-                        </div>
-                    </div>
-                    <div class="bg-surface-container p-space-sm rounded-xl flex flex-col justify-between">
-                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Kategori Master</span>
-                        <div class="flex items-baseline gap-1 mt-1">
-                            <span
-                                class="font-display-lg text-headline-lg text-secondary leading-none">{{ $stats['total_categories'] }}</span>
-                            <span class="font-label-sm text-label-sm text-on-surface-variant">Grup</span>
-                        </div>
-                    </div>
-                    {{-- PERBAIKAN POIN 4: Menampilkan waktu update katalog aktual dari database --}}
-                    <div class="bg-surface-container p-space-sm rounded-xl flex flex-col justify-between">
-                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Update Katalog</span>
-                        <div class="flex flex-col mt-1">
-                            <span
-                                class="font-label-md text-label-md text-on-surface font-semibold leading-tight">{{ $stats['last_sync_label'] ?? 'Hari ini' }}</span>
-                            <span class="font-label-sm text-label-sm text-primary">{{ $stats['last_sync'] }}</span>
-                        </div>
+                <span class="material-symbols-outlined text-primary/40 text-[28px]">inventory_2</span>
+            </div>
+            <div
+                class="bg-surface-container-low border border-outline-variant/15 p-space-md rounded-xl flex items-center justify-between">
+                <div>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Rata-rata Isi</span>
+                    <div class="flex items-baseline gap-1.5 mt-1">
+                        <span
+                            class="font-display-lg text-headline-lg text-tertiary leading-none">{{ $stats['avg_ratio'] }}</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Pcs/Box</span>
                     </div>
                 </div>
+                <span class="material-symbols-outlined text-tertiary/40 text-[28px]">package_2</span>
+            </div>
+            <div
+                class="bg-surface-container-low border border-outline-variant/15 p-space-md rounded-xl flex items-center justify-between">
+                <div>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Jumlah Kategori</span>
+                    <div class="flex items-baseline gap-1.5 mt-1">
+                        <span
+                            class="font-display-lg text-headline-lg text-secondary leading-none">{{ $stats['total_categories'] }}</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Kategori</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-secondary/40 text-[28px]">category</span>
+            </div>
+            <div
+                class="bg-surface-container-low border border-outline-variant/15 p-space-md rounded-xl flex items-center justify-between">
+                <div>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Update Terakhir</span>
+                    <div class="flex flex-col mt-1">
+                        <span
+                            class="font-label-md text-label-md text-on-surface font-semibold leading-tight">{{ $stats['last_sync_label'] ?? 'Hari ini' }}</span>
+                        <span class="font-label-sm text-label-sm text-primary">{{ $stats['last_sync'] }}</span>
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-on-surface-variant/40 text-[28px]">schedule</span>
             </div>
         </section>
 
@@ -142,64 +120,44 @@
         <form method="GET" action="{{ route('products.index') }}" id="filterForm"
             class="flex flex-col gap-space-md mb-space-md">
             <div class="flex items-center justify-between flex-wrap gap-space-sm">
-                <div class="relative flex-1 min-w-[320px] max-w-xl">
+                <div class="relative flex-1 min-w-[260px] max-w-xl">
                     <span
                         class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
                     <input name="search" value="{{ request('search') }}" oninput="debouncedSearch()"
-                        class="w-full h-11 pl-11 pr-10 rounded-xl bg-surface-container text-on-surface placeholder:text-on-surface-variant/60 font-body-sm text-body-sm focus:outline-none focus:bg-surface-container-high transition-all shadow-inner"
-                        placeholder="Cari nama barang, kode SKU, atau barcode..." type="text" />
-                    <span
-                        class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/70 text-[18px]">barcode_scanner</span>
+                        class="w-full h-11 pl-11 pr-4 rounded-xl bg-surface-container text-on-surface placeholder:text-on-surface-variant/60 font-body-sm text-body-sm focus:outline-none focus:bg-surface-container-high transition-all shadow-inner"
+                        placeholder="Cari nama barang, kode SKU, atau varian..." type="text" />
                 </div>
 
                 <div class="flex items-center gap-space-sm flex-wrap">
-                    {{-- Hidden fields untuk filter lain --}}
-                    <input type="hidden" name="category" value="{{ $catSlug }}">
-
-                    {{-- Filter Status Aktif / Arsip --}}
-                    <div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-xl">
-                        <span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
-                        <select name="status" onchange="this.form.submit()"
-                            class="bg-transparent text-on-surface font-label-md text-label-md focus:outline-none cursor-pointer">
-                            <option class="bg-surface-container-high" value="active" @selected(request('status', 'active') === 'active')>Status:
-                                Aktif Baku</option>
-                            <option class="bg-surface-container-high" value="archived" @selected(request('status') === 'archived')>Status:
-                                Diarsipkan</option>
-                            <option class="bg-surface-container-high" value="all" @selected(request('status') === 'all')>Semua
-                                Status</option>
-                        </select>
-                    </div>
+                    <input type="hidden" name="category" id="filterCategoryInput" value="{{ $catSlug }}">
 
                     <div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-xl">
                         <span class="material-symbols-outlined text-on-surface-variant text-[18px]">filter_alt</span>
-                        <select name="box_size" onchange="this.form.submit()"
+                        <select name="box_size"
                             class="bg-transparent text-on-surface font-label-md text-label-md focus:outline-none cursor-pointer">
                             <option class="bg-surface-container-high" value="all" @selected($boxSize === 'all')>Semua
                                 Ukuran Box</option>
-                            <option class="bg-surface-container-high" value="compact" @selected($boxSize === 'compact')>Box
-                                Kecil
+                            <option class="bg-surface-container-high" value="compact" @selected($boxSize === 'compact')>Box Kecil
                                 (1 - 12 Pcs)</option>
-                            <option class="bg-surface-container-high" value="medium" @selected($boxSize === 'medium')>Box
-                                Sedang
+                            <option class="bg-surface-container-high" value="medium" @selected($boxSize === 'medium')>Box Sedang
                                 (13 - 39 Pcs)</option>
-                            <option class="bg-surface-container-high" value="large" @selected($boxSize === 'large')>Box
-                                Besar
+                            <option class="bg-surface-container-high" value="large" @selected($boxSize === 'large')>Box Besar
                                 (40+ Pcs)</option>
                         </select>
                     </div>
 
                     <div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-xl">
                         <span class="material-symbols-outlined text-on-surface-variant text-[18px]">sort</span>
-                        <select name="sort" onchange="this.form.submit()"
+                        <select name="sort"
                             class="bg-transparent text-on-surface font-label-md text-label-md focus:outline-none cursor-pointer">
                             <option class="bg-surface-container-high" value="latest" @selected(request('sort', 'latest') === 'latest')>Urutkan:
-                                SKU Terbaru</option>
-                            <option class="bg-surface-container-high" value="name" @selected(request('sort') === 'name')>Nama
-                                Produk (A - Z)</option>
+                                Terbaru</option>
+                            <option class="bg-surface-container-high" value="name" @selected(request('sort') === 'name')>Nama (A -
+                                Z)</option>
                             <option class="bg-surface-container-high" value="ratio_desc" @selected(request('sort') === 'ratio_desc')>Isi
-                                Terbanyak (Pcs)</option>
-                            <option class="bg-surface-container-high" value="category" @selected(request('sort') === 'category')>
-                                Kategori Produk</option>
+                                Terbanyak</option>
+                            <option class="bg-surface-container-high" value="category" @selected(request('sort') === 'category')>Kategori
+                            </option>
                         </select>
                     </div>
 
@@ -218,35 +176,46 @@
                 </div>
             </div>
 
-            {{-- Kategori Pills --}}
-            <div class="flex min-w-0 items-center gap-space-xs">
+            {{-- Bar Filter Kategori Tunggal + Navigasi Geser & Lompat Cepat --}}
+            <div class="flex min-w-0 items-center gap-1.5">
+                <button type="button" onclick="scrollCategoryPills(-240)" title="Geser kategori ke kiri"
+                    class="shrink-0 w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center border border-outline-variant/20 transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                </button>
+
                 <div id="categoryPills"
-                    class="flex min-w-0 flex-1 items-center gap-space-xs overflow-x-auto pb-1 scrollbar-none">
+                    class="flex min-w-0 flex-1 items-center gap-space-xs overflow-x-auto py-1 scroll-smooth scrollbar-none">
                     <button type="submit" name="category" value="all"
                         class="category-pill shrink-0 px-space-md py-1.5 rounded-full text-label-md font-label-md flex items-center gap-1.5 transition-all cursor-pointer
                         {{ $catSlug === 'all'
-                            ? 'bg-primary text-on-primary font-bold shadow-[0_0_12px_rgba(78,222,163,0.35)]'
+                            ? 'active-pill bg-primary text-on-primary font-bold shadow-sm'
                             : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface' }}">
                         <span>Semua</span>
                         <span
-                            class="bg-on-primary/20 text-on-primary px-1.5 py-0.2 rounded-full text-label-sm">{{ $catalogTotal }}</span>
+                            class="{{ $catSlug === 'all' ? 'bg-on-primary/20 text-on-primary' : 'bg-surface-container-highest text-on-surface-variant' }} px-1.5 py-0.2 rounded-full text-label-sm">{{ $catalogTotal }}</span>
                     </button>
                     @foreach ($categories as $c)
                         <button type="submit" name="category" value="{{ $c->slug }}"
                             class="category-pill shrink-0 px-space-md py-1.5 rounded-full text-label-md font-label-md flex items-center gap-1.5 transition-all cursor-pointer
                             {{ $catSlug === $c->slug
-                                ? 'bg-primary text-on-primary font-bold shadow-[0_0_12px_rgba(78,222,163,0.35)]'
+                                ? 'active-pill bg-primary text-on-primary font-bold shadow-sm'
                                 : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface' }}">
                             <span>{{ $c->name }}</span>
                             <span
-                                class="bg-surface-container-highest text-on-surface-variant px-1.5 py-0.2 rounded-full text-label-sm">{{ $c->products_count }}</span>
+                                class="{{ $catSlug === $c->slug ? 'bg-on-primary/20 text-on-primary' : 'bg-surface-container-highest text-on-surface-variant' }} px-1.5 py-0.2 rounded-full text-label-sm">{{ $c->products_count }}</span>
                         </button>
                     @endforeach
                 </div>
+
+                <button type="button" onclick="scrollCategoryPills(240)" title="Geser kategori ke kanan"
+                    class="shrink-0 w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface flex items-center justify-center border border-outline-variant/20 transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                </button>
+
                 <button type="button" id="btnOpenCategoryModal"
-                    class="shrink-0 px-space-md py-1.5 rounded-full text-label-md font-label-md flex items-center gap-1 border border-dashed border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-all cursor-pointer">
-                    <span class="material-symbols-outlined text-[16px]">add</span>
-                    <span>Kelola Kategori</span>
+                    class="shrink-0 px-space-md py-1.5 rounded-full text-label-md font-label-md flex items-center gap-1 border border-dashed border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-all cursor-pointer ml-1">
+                    <span class="material-symbols-outlined text-[16px]">tune</span>
+                    <span>Kategori</span>
                 </button>
             </div>
         </form>
@@ -258,17 +227,18 @@
                     <thead>
                         <tr
                             class="bg-surface-container font-label-md text-label-md text-on-surface-variant uppercase tracking-wider select-none">
-                            <th class="py-space-md pl-space-lg pr-2 w-10">
+                            <th class="py-space-md pl-space-md pr-2 w-10 text-center">
                                 <input type="checkbox" id="selectAllRows"
                                     class="w-4 h-4 rounded border-outline-variant bg-surface-container text-primary focus:ring-primary cursor-pointer" />
                             </th>
-                            <th class="py-space-md px-space-lg font-semibold">SKU & Barcode</th>
-                            <th class="py-space-md px-space-md font-semibold">Nama Produk & Varian</th>
-                            <th class="py-space-md px-space-md font-semibold">Kategori</th>
-                            <th class="py-space-md px-space-md font-semibold text-center">Aturan Baku Kemasan</th>
-                            <th class="py-space-md px-space-md font-semibold">Simulator Cepat</th>
-                            <th class="py-space-md px-space-md font-semibold">Status</th>
-                            <th class="py-space-md px-space-lg font-semibold text-right">Aksi</th>
+                            <th class="py-space-md px-3 font-semibold text-center">Kode SKU</th>
+                            <th class="py-space-md px-3 font-semibold text-center">Nama Produk & Varian</th>
+                            <th class="py-space-md px-3 font-semibold text-center">Kategori</th>
+                            <th class="py-space-md px-3 font-semibold text-center">Isi per Box</th>
+                            <th class="py-space-md px-3 font-semibold text-center">Status</th>
+                            <th
+                                class="sticky right-0 z-10 bg-surface-container py-space-md px-space-md font-semibold text-center shadow-[-6px_0_12px_-6px_rgba(0,0,0,0.35)]">
+                                Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-surface-container-highest/20 font-body-sm text-body-sm text-on-surface"
@@ -277,7 +247,7 @@
                             @include('products.partials.table-row', ['product' => $product])
                         @empty
                             <tr>
-                                <td colspan="8" class="py-space-xl text-center text-on-surface-variant">
+                                <td colspan="7" class="py-space-xl text-center text-on-surface-variant">
                                     Tidak ada produk yang cocok dengan filter.
                                 </td>
                             </tr>
@@ -292,7 +262,8 @@
             @forelse ($products as $product)
                 @include('products.partials.card-item', ['product' => $product])
             @empty
-                <div class="md:col-span-2 xl:col-span-4 py-space-xl text-center text-on-surface-variant bg-surface-container-low rounded-2xl">
+                <div
+                    class="md:col-span-2 xl:col-span-4 py-space-xl text-center text-on-surface-variant bg-surface-container-low rounded-2xl">
                     Tidak ada produk yang cocok dengan filter.
                 </div>
             @endforelse
@@ -302,26 +273,19 @@
         <footer class="mt-space-lg flex items-center justify-between flex-wrap gap-space-md">
             <div class="flex items-center gap-space-sm text-on-surface-variant font-label-md text-label-md">
                 <span>Menampilkan <strong class="text-on-surface">{{ $products->firstItem() ?? 0 }} -
-                        {{ $products->lastItem() ?? 0 }}</strong> dari total <strong
-                        class="text-on-surface">{{ $products->total() }}</strong> Master Produk</span>
-                <span class="text-outline-variant">•</span>
-                {{-- PERBAIKAN POIN 4: Mengganti klaim Auto-Sync Transaksi dengan deskripsi Rule Engine aktual --}}
-                <span class="flex items-center gap-1 text-primary">
-                    <span class="material-symbols-outlined text-[14px]">rule</span>
-                    Rule Engine Aktif (1 Box = X Pcs)
-                </span>
+                        {{ $products->lastItem() ?? 0 }}</strong> dari <strong
+                        class="text-on-surface">{{ $products->total() }}</strong> produk</span>
             </div>
             <div class="flex items-center gap-space-xs">{{ $products->links() }}</div>
         </footer>
     </div>
 
-    {{-- ============ MODAL TAMBAH BARANG ============ --}}
+    {{-- ============ MODALS ============ --}}
     @include('products.partials.modal-create')
     @include('products.partials.modal-edit-detail')
     @include('products.partials.modal-phase3')
     @include('products.partials.modal-phase4')
     @include('products.partials.modal-confirmation')
-
 @endsection
 
 @push('scripts')
@@ -331,7 +295,8 @@
                 const toast = document.createElement('div');
                 const isWarning = type === 'warning';
                 toast.setAttribute('role', isWarning ? 'alert' : 'status');
-                toast.className = 'fixed bottom-6 right-6 z-[100] flex max-w-[min(90vw,28rem)] items-center gap-2 rounded-xl px-space-lg py-space-md font-headline-sm text-body-md shadow-2xl ' +
+                toast.className =
+                    'fixed bottom-6 right-6 z-[100] flex max-w-[min(90vw,28rem)] items-center gap-2 rounded-xl px-space-lg py-space-md font-headline-sm text-body-md shadow-2xl ' +
                     (isWarning ? 'bg-error-container text-on-error-container' : 'bg-primary text-on-primary');
 
                 const icon = document.createElement('span');
@@ -345,13 +310,52 @@
                 setTimeout(() => toast.remove(), 4000);
             }
 
-            /* ---------- Row Simulator ---------- */
+            window.copySKU = async function(sku, btn) {
+                try {
+                    await navigator.clipboard.writeText(sku);
+                    const icon = btn?.querySelector('.material-symbols-outlined');
+                    if (icon) {
+                        const prev = icon.textContent;
+                        icon.textContent = 'check';
+                        setTimeout(() => {
+                            icon.textContent = prev;
+                        }, 1200);
+                    }
+                    showToast(`Kode ${sku} disalin ke clipboard.`);
+                } catch (e) {
+                    showToast('Gagal menyalin kode SKU.', 'warning');
+                }
+            };
+
+            window.scrollCategoryPills = function(offset) {
+                const container = document.getElementById('categoryPills');
+                if (container) container.scrollBy({
+                    left: offset,
+                    behavior: 'smooth'
+                });
+            };
+
+            function centerActiveCategoryPill() {
+                const container = document.getElementById('categoryPills');
+                const active = container?.querySelector('.active-pill');
+                if (active) {
+                    active.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center'
+                    });
+                }
+            }
+            centerActiveCategoryPill();
+
+            /* ---------- Card Simulator ---------- */
             document.addEventListener('input', event => {
                 if (!event.target.matches('.sim-input')) return;
 
                 const ratio = parseInt(event.target.dataset.ratio, 10) || 1;
                 const quantity = parseInt(event.target.value, 10) || 0;
-                event.target.parentElement.querySelector('.sim-result').textContent = (quantity * ratio) + ' Pcs';
+                event.target.parentElement.querySelector('.sim-result').textContent = (quantity * ratio) +
+                    ' Pcs';
             });
 
             /* ---------- View Switcher ---------- */
@@ -378,7 +382,10 @@
 
             /* ---------- Modal Open/Close ---------- */
             const modal = document.getElementById('modalTambahBarang');
-            document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.remove('hidden'));
+            document.getElementById('btnOpenModal').addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                syncSkuByCategory();
+            });
             document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.add('hidden'));
             document.getElementById('btnCancelModal').addEventListener('click', () => modal.classList.add('hidden'));
             modal.addEventListener('click', e => {
@@ -388,8 +395,7 @@
             /* ---------- Modal Box-Pcs Stepper ---------- */
             const pcsInput = document.getElementById('inputModalPcs');
             const simOut = document.getElementById('modalSimOutput');
-            const updateSim = () => simOut.textContent = 'Otomatis Dihitung: ' + (10 * (parseInt(pcsInput.value, 10) ||
-                1)) + ' Pcs';
+            const updateSim = () => simOut.textContent = (10 * (parseInt(pcsInput.value, 10) || 1)) + ' Pcs';
             document.getElementById('btnIncPcs').addEventListener('click', () => {
                 pcsInput.value = (parseInt(pcsInput.value, 10) || 0) + 1;
                 updateSim();
@@ -415,23 +421,23 @@
                 });
             });
 
-            /* ---------- Auto-Generate SKU (server-side) ---------- */
-            document.getElementById('btnGenSKU').addEventListener('click', async function() {
-                const catSelect = document.getElementById('selectKategori');
-                const catSlug = catSelect.options[catSelect.selectedIndex].dataset.slug || 'gen';
-                const res = await fetch(
-                    `{{ route('products.generate-sku') }}?category_slug=${encodeURIComponent(catSlug)}`
-                );
-                const json = await res.json();
-                document.getElementById('inputSKU').value = json.sku;
-            });
+            /* ---------- Auto-Generate SKU Otomatis Saat Kategori Dipilih ---------- */
+            const catSelect = document.getElementById('selectKategori');
+            const skuPreview = document.getElementById('skuPreviewBadge');
 
-            /* ---------- Debounced Search ---------- */
-            let searchTimer;
-            window.debouncedSearch = () => {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => document.getElementById('filterForm').submit(), 400);
-            };
+            async function syncSkuByCategory() {
+                if (!catSelect || !skuPreview || catSelect.selectedIndex < 0) return;
+                const catSlug = catSelect.options[catSelect.selectedIndex].dataset.slug || 'gen';
+                try {
+                    const res = await fetch(
+                        `{{ route('products.generate-sku') }}?category_slug=${encodeURIComponent(catSlug)}`);
+                    if (!res.ok) return;
+                    const json = await res.json();
+                    skuPreview.textContent = json.sku;
+                } catch (e) {}
+            }
+
+            catSelect?.addEventListener('change', syncSkuByCategory);
 
             /* ---------- Modal Detail & Edit Produk ---------- */
             const detailModal = document.getElementById('modalDetailProduk');
@@ -449,7 +455,6 @@
                     document.getElementById('detailName').textContent = p.name;
                     document.getElementById('detailSkuBadge').textContent = p.sku;
                     document.getElementById('detailCategory').textContent = p.category_name;
-                    document.getElementById('detailBarcode').textContent = p.barcode || 'Tidak ada barcode';
                     document.getElementById('detailVariant').textContent = p.variant || '—';
                     document.getElementById('detailRatio').textContent = `1 BOX = ${p.box_pcs_ratio} PCS`;
                     document.getElementById('detailStock').textContent = p.stock_preview;
@@ -467,7 +472,8 @@
                     } else {
                         p.recent_transactions.forEach(transaction => {
                             const entry = document.createElement('div');
-                            entry.className = 'flex flex-wrap items-center justify-between gap-2 py-2 border-b border-surface-container-highest/40 last:border-0';
+                            entry.className =
+                                'flex flex-wrap items-center justify-between gap-2 py-2 border-b border-surface-container-highest/40 last:border-0';
 
                             const reference = document.createElement('div');
                             reference.className = 'min-w-0';
@@ -481,8 +487,10 @@
                             detail.textContent = `${transaction.date} · ${transaction.box_qty} Box`;
 
                             const quantity = document.createElement('span');
-                            quantity.className = 'text-label-sm text-primary font-semibold whitespace-nowrap';
-                            quantity.textContent = `${Number(transaction.total_pcs).toLocaleString('id-ID')} Pcs`;
+                            quantity.className =
+                                'text-label-sm text-primary font-semibold whitespace-nowrap';
+                            quantity.textContent =
+                                `${Number(transaction.total_pcs).toLocaleString('id-ID')} Pcs`;
 
                             reference.append(title, detail);
                             entry.append(reference, quantity);
@@ -516,19 +524,13 @@
                     document.getElementById('editVariant').value = p.variant || '';
                     document.getElementById('editCategory').value = p.category_id;
                     document.getElementById('editSku').value = p.sku;
-                    document.getElementById('editBarcode').value = p.barcode || '';
                     editRatioInput.value = p.box_pcs_ratio;
                     editRatioInput.readOnly = p.has_transactions;
                     editRatioInput.setAttribute('aria-readonly', String(p.has_transactions));
                     updateEditSim();
-                    updateEditSim();
 
                     const warnEl = document.getElementById('editTransactionWarning');
-                    if (p.has_transactions) {
-                        warnEl.classList.remove('hidden');
-                    } else {
-                        warnEl.classList.add('hidden');
-                    }
+                    warnEl.classList.toggle('hidden', !p.has_transactions);
 
                     editModal.classList.remove('hidden');
                 } catch (e) {
@@ -536,19 +538,7 @@
                 }
             };
 
-            /* ---------- Modal Scan Barcode & Kelola Kategori ---------- */
-            const scanModal = document.getElementById('modalScanBarcode');
-            const scanInput = document.getElementById('scannerInput');
-            window.closeScannerModal = () => scanModal?.classList.add('hidden');
-
-            document.getElementById('btnOpenScanner')?.addEventListener('click', () => {
-                scanModal?.classList.remove('hidden');
-                setTimeout(() => scanInput?.focus(), 60);
-            });
-            scanModal?.addEventListener('click', e => {
-                if (e.target === scanModal) closeScannerModal();
-            });
-
+            /* ---------- Modal Kelola Kategori ---------- */
             const catModal = document.getElementById('modalKelolaKategori');
             window.closeCategoryModal = () => catModal?.classList.add('hidden');
 
@@ -623,9 +613,11 @@
                 };
                 const [icon, ...iconClasses] = iconStyles[options.variant] || iconStyles.danger;
                 confirmationIcon.textContent = icon;
-                confirmationIcon.className = 'material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-full ' +
+                confirmationIcon.className =
+                    'material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-full ' +
                     iconClasses.join(' ');
-                confirmActionButton.className = 'h-10 rounded-xl px-space-lg font-label-md font-bold transition-colors cursor-pointer ' +
+                confirmActionButton.className =
+                    'h-10 rounded-xl px-space-lg font-label-md font-bold transition-colors cursor-pointer ' +
                     (buttonStyles[options.variant] || buttonStyles.danger).join(' ');
 
                 actionConfirmationModal.classList.remove('hidden');
@@ -645,7 +637,10 @@
             confirmActionButton.addEventListener('click', () => {
                 if (!pendingConfirmation) return;
 
-                const { form, submitter } = pendingConfirmation;
+                const {
+                    form,
+                    submitter
+                } = pendingConfirmation;
                 pendingConfirmation = null;
                 actionConfirmationModal.classList.add('hidden');
                 actionConfirmationModal.classList.remove('flex');
@@ -682,13 +677,8 @@
                         .join('');
                 }
                 if (bulkBar) {
-                    if (checked.length > 0) {
-                        bulkBar.classList.remove('hidden');
-                        bulkBar.classList.add('flex');
-                    } else {
-                        bulkBar.classList.add('hidden');
-                        bulkBar.classList.remove('flex');
-                    }
+                    bulkBar.classList.toggle('hidden', checked.length === 0);
+                    bulkBar.classList.toggle('flex', checked.length > 0);
                 }
             }
 
@@ -697,12 +687,14 @@
                 syncBulkState();
             });
 
-            document.addEventListener('change', (e) => {
+            document.addEventListener('change', e => {
                 if (e.target.classList?.contains('row-checkbox')) syncBulkState();
             });
 
             /* ---------- Live AJAX Filter & Search Tanpa Reload Halaman ---------- */
             const filterForm = document.getElementById('filterForm');
+            let searchTimer;
+
             async function fetchCatalogAjax(url) {
                 const tableBody = document.getElementById('catalogTableBody');
                 const cardWrap = document.getElementById('cardViewContainer');
@@ -728,13 +720,11 @@
                     if (newCards && cardWrap) cardWrap.innerHTML = newCards.innerHTML;
                     if (newCategoryPills) {
                         document.getElementById('categoryPills').innerHTML = newCategoryPills.innerHTML;
+                        centerActiveCategoryPill();
                     }
-                    if (newExportLink) {
-                        document.getElementById('productExportLink').href = newExportLink.href;
-                    }
-                    if (newFooter && document.querySelector('footer')) {
-                        document.querySelector('footer').innerHTML = newFooter.innerHTML;
-                    }
+                    if (newExportLink) document.getElementById('productExportLink').href = newExportLink.href;
+                    if (newFooter && document.querySelector('footer')) document.querySelector('footer').innerHTML =
+                        newFooter.innerHTML;
 
                     window.history.replaceState({}, '', url);
                     if (selectAll) selectAll.checked = false;
@@ -754,7 +744,7 @@
                     const submitter = e.submitter;
                     if (submitter && submitter.name) {
                         params.set(submitter.name, submitter.value);
-                        const hiddenCat = filterForm.querySelector('input[name="category"]');
+                        const hiddenCat = document.getElementById('filterCategoryInput');
                         if (hiddenCat && submitter.name === 'category') hiddenCat.value = submitter.value;
                     }
                     fetchCatalogAjax(`${filterForm.action}?${params.toString()}`);

@@ -16,33 +16,32 @@ use Illuminate\Validation\ValidationException;
 class ProductController extends Controller
 {
     /**
-     * Peta standarisasi prefix SKU berdasarkan slug kategori (selaras dengan Seeder).
+     * Peta standarisasi prefix SKU berdasarkan slug kategori.
      */
     private function resolveSkuPrefix(?string $categorySlug): string
     {
         return match (strtolower((string) $categorySlug)) {
-            'sembako'          => 'SMB',
-            'makanan'          => 'MKN',
-            'snack'            => 'SNK',
-            'minuman', 'kopi'  => 'BVR',
-            'rumah'            => 'HSE',
-            default            => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', (string) $categorySlug) ?: 'GEN', 0, 3)),
+            'sembako' => 'SMB',
+            'makanan' => 'MKN',
+            'snack' => 'SNK',
+            'minuman', 'kopi' => 'BVR',
+            'rumah' => 'HSE',
+            default => strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', (string) $categorySlug) ?: 'GEN', 0, 3)),
         };
     }
 
     /**
-     * Menghasilkan nomor SKU berikutnya yang dijamin unik.
+     * Menghasilkan kode SKU baku berikutnya dengan format SKU-<KATEGORI>-<NO>.
      */
     private function buildNextSku(?string $categorySlug): string
     {
         $prefix = $this->resolveSkuPrefix($categorySlug);
 
-        // Ambil nomor urut terbesar dari SKU dengan prefix yang sama
         $existingSkus = Product::where('sku', 'like', "SKU-{$prefix}-%")->pluck('sku');
         $maxNumber = 0;
 
         foreach ($existingSkus as $sku) {
-            if (preg_match('/^SKU-'.preg_quote($prefix, '/').'-(\d+)$/', $sku, $matches)) {
+            if (preg_match('/^SKU-' . preg_quote($prefix, '/') . '-(\d+)$/', $sku, $matches)) {
                 $maxNumber = max($maxNumber, (int) $matches[1]);
             }
         }
@@ -53,26 +52,21 @@ class ProductController extends Controller
     private function catalogQuery(Request $request): Builder
     {
         $query = Product::with('category')
-            ->withExists('incomingTransactions as has_modal');
-
-        $status = $request->input('status', 'active');
-        if ($status === 'active') {
-            $query->active();
-        } elseif ($status === 'archived') {
-            $query->where('status', 'archived');
-        }
+            ->withExists('incomingTransactions as has_modal')
+            ->withExists('outgoingTransactions as has_outgoing')
+            ->active();
 
         if ($search = $request->string('search')->trim()->toString()) {
-            $query->where(function (Builder $query) use ($search): void {
-                $query->where('name', 'like', "%{$search}%")
+            $query->where(function (Builder $q) use ($search): void {
+                $q->where('name', 'like', "%{$search}%")
                     ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%");
+                    ->orWhere('variant', 'like', "%{$search}%");
             });
         }
 
         $category = $request->input('category', 'all');
         if ($category !== 'all') {
-            $query->whereHas('category', fn (Builder $query): Builder => $query->where('slug', $category));
+            $query->whereHas('category', fn(Builder $q): Builder => $q->where('slug', $category));
         }
 
         $query->byBoxSize($request->input('box_size', 'all'));
@@ -91,7 +85,6 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        // Ambil waktu pembaruan terakhir dari database (bukan now())
         $latestUpdate = Product::max('updated_at');
         $lastSyncDate = $latestUpdate ? Carbon::parse($latestUpdate)->timezone('Asia/Jakarta') : null;
 
@@ -103,30 +96,20 @@ class ProductController extends Controller
                 ? ($lastSyncDate->isToday() ? 'Hari ini' : $lastSyncDate->translatedFormat('d M Y'))
                 : 'Belum ada data',
             'last_sync' => $lastSyncDate
-                ? $lastSyncDate->format('H:i').' WIB'
+                ? $lastSyncDate->format('H:i') . ' WIB'
                 : '--:-- WIB',
         ];
 
-        $status = $request->input('status', 'active');
-
-        // Category counts match the selected status filter.
         $categories = Category::withCount([
-            'products' => function (Builder $query) use ($status): void {
-                if ($status === 'active') {
-                    $query->active();
-                } elseif ($status === 'archived') {
-                    $query->where('status', 'archived');
-                }
-            },
+            'products' => fn(Builder $q) => $q->active(),
         ])->get();
-        $catalogTotal = Product::query()
-            ->when($status === 'active', fn (Builder $query): Builder => $query->active())
-            ->when($status === 'archived', fn (Builder $query): Builder => $query->where('status', 'archived'))
-            ->count();
 
-        // Default SKU awal untuk modal tambah berdasarkan kategori pertama
-        $firstCategory = $categories->first();
-        $nextSku = $this->buildNextSku($firstCategory?->slug);
+        $catalogTotal = Product::active()->count();
+
+        $selectedOldCategory = old('category_id')
+            ? $categories->firstWhere('id', (int) old('category_id'))
+            : $categories->first();
+        $nextSku = $this->buildNextSku($selectedOldCategory?->slug);
 
         $catSlug = $request->input('category', 'all');
         $boxSize = $request->input('box_size', 'all');
@@ -145,38 +128,33 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        // Normalisasi SKU ke huruf besar & barcode kosong menjadi null agar unique aman
-        $request->merge([
-            'sku' => strtoupper(trim((string) $request->input('sku'))),
-            'barcode' => trim((string) $request->input('barcode')) ?: null,
-        ]);
-
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'variant' => 'nullable|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            'sku' => 'required|string|max:50|unique:products,sku',
-            'barcode' => 'nullable|string|max:50|unique:products,barcode',
             'box_pcs_ratio' => 'required|integer|min:1',
-        ], [
-            'sku.unique' => 'Kode SKU sudah terdaftar pada produk lain.',
-            'barcode.unique' => 'Nomor Barcode ini sudah digunakan oleh produk lain.',
         ]);
 
-        $data['status'] = 'active';
-        Product::create($data);
+        $product = DB::transaction(function () use ($data): Product {
+            $category = Category::findOrFail($data['category_id']);
+            // Kunci pembacaan nomor urut terakhir agar auto-increment SKU tetap aman
+            Product::where('category_id', $category->id)->lockForUpdate()->get();
+
+            $data['sku'] = $this->buildNextSku($category->slug);
+            $data['status'] = 'active';
+
+            return Product::create($data);
+        });
 
         return redirect()
             ->route('products.index')
-            ->with('success', "Master Barang \"{$data['name']}\" berhasil ditambahkan!");
+            ->with('success', "Master Barang \"{$product->name}\" ({$product->sku}) berhasil ditambahkan!");
     }
 
     public function generateSku(Request $request)
     {
-        $sku = $this->buildNextSku($request->input('category_slug'));
-
         return response()->json([
-            'sku' => $sku,
+            'sku' => $this->buildNextSku($request->input('category_slug')),
         ]);
     }
 
@@ -189,17 +167,20 @@ class ProductController extends Controller
             ->latest('id')
             ->limit(5)
             ->get();
+
         $outgoingTransactions = $product->outgoingTransactions()
             ->latest('sold_at')
             ->latest('id')
             ->limit(5)
             ->get();
+
         $lastIncoming = $product->incomingTransactions()
             ->latest('received_at')
             ->latest('id')
             ->first();
+
         $history = $incomingTransactions
-            ->map(fn (IncomingTransaction $transaction): array => [
+            ->map(fn(IncomingTransaction $transaction): array => [
                 'created_at' => $transaction->created_at,
                 'type' => 'Barang Masuk',
                 'reference' => $transaction->no_faktur,
@@ -207,7 +188,7 @@ class ProductController extends Controller
                 'box_qty' => $transaction->box_qty,
                 'total_pcs' => $transaction->total_pcs,
             ])
-            ->concat($outgoingTransactions->map(fn (OutgoingTransaction $transaction): array => [
+            ->concat($outgoingTransactions->map(fn(OutgoingTransaction $transaction): array => [
                 'created_at' => $transaction->created_at,
                 'type' => 'Barang Keluar',
                 'reference' => $transaction->no_invoice,
@@ -223,6 +204,7 @@ class ProductController extends Controller
 
                 return $transaction;
             });
+
         $ratio = max(1, (int) $product->box_pcs_ratio);
         $stockPcs = max(0, (int) $product->stock_pcs);
         $stockBoxes = intdiv($stockPcs, $ratio);
@@ -231,42 +213,29 @@ class ProductController extends Controller
         return response()->json([
             'id' => $product->id,
             'sku' => $product->sku,
-            'barcode' => $product->barcode,
             'name' => $product->name,
             'variant' => $product->variant,
             'category_id' => $product->category_id,
             'category_name' => $product->category?->name ?? '-',
             'box_pcs_ratio' => $product->box_pcs_ratio,
-            'status' => $product->status,
-            'created_at' => $product->created_at?->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i').' WIB',
-            'updated_at' => $product->updated_at?->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i').' WIB',
-            'has_transactions' => $incomingTransactions->isNotEmpty()
-                || $outgoingTransactions->isNotEmpty(),
+            'created_at' => $product->created_at?->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB',
+            'updated_at' => $product->updated_at?->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB',
+            'has_transactions' => $incomingTransactions->isNotEmpty() || $outgoingTransactions->isNotEmpty(),
             'recent_transactions' => $history,
             'stock_preview' => "{$stockBoxes} Box, {$stockRemPcs} Pcs",
             'last_modal_box' => $lastIncoming
-                ? 'Rp '.number_format((float) $lastIncoming->price_per_box, 0, ',', '.')
+                ? 'Rp ' . number_format((float) $lastIncoming->price_per_box, 0, ',', '.')
                 : 'Belum ada Barang Masuk',
         ]);
     }
 
     public function update(Request $request, Product $product)
     {
-        $request->merge([
-            'sku' => strtoupper(trim((string) $request->input('sku'))),
-            'barcode' => trim((string) $request->input('barcode')) ?: null,
-        ]);
-
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'variant' => 'nullable|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            'sku' => 'required|string|max:50|unique:products,sku,'.$product->id,
-            'barcode' => 'nullable|string|max:50|unique:products,barcode,'.$product->id,
             'box_pcs_ratio' => 'required|integer|min:1',
-        ], [
-            'sku.unique' => 'Kode SKU sudah terdaftar pada produk lain.',
-            'barcode.unique' => 'Nomor Barcode ini sudah digunakan oleh produk lain.',
         ]);
 
         DB::transaction(function () use ($data, $product): void {
@@ -291,45 +260,76 @@ class ProductController extends Controller
         });
 
         return redirect()
-            ->route('products.index', $request->only(['search', 'category', 'box_size', 'sort', 'status']))
+            ->route('products.index', $request->only(['search', 'category', 'box_size', 'sort']))
             ->with('success', "Master Barang \"{$product->name}\" berhasil diperbarui!");
     }
 
-    public function archive(Product $product)
+    public function destroy(Product $product)
     {
-        $product->update(['status' => 'archived']);
+        if ($product->incomingTransactions()->exists() || $product->outgoingTransactions()->exists()) {
+            return back()->with('error', "Produk \"{$product->name}\" ({$product->sku}) tidak dapat dihapus karena sudah tercatat dalam riwayat transaksi.");
+        }
 
-        return back()->with('success', "Produk \"{$product->name}\" telah diarsipkan.");
+        $name = $product->name;
+        $sku = $product->sku;
+        $product->delete();
+
+        return back()->with('success', "Master Barang \"{$name}\" ({$sku}) berhasil dihapus.");
     }
 
-    public function restore(Product $product)
+    public function bulkDelete(Request $request)
     {
-        $product->update(['status' => 'active']);
+        $data = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:products,id',
+        ]);
 
-        return back()->with('success', "Produk \"{$product->name}\" berhasil dipulihkan ke katalog aktif.");
+        $products = Product::whereIn('id', $data['ids'])
+            ->withExists(['incomingTransactions', 'outgoingTransactions'])
+            ->get();
+
+        $deleted = 0;
+        $blocked = 0;
+
+        foreach ($products as $item) {
+            if ($item->incoming_transactions_exists || $item->outgoing_transactions_exists) {
+                $blocked++;
+                continue;
+            }
+            $item->delete();
+            $deleted++;
+        }
+
+        if ($deleted === 0 && $blocked > 0) {
+            return back()->with('error', "{$blocked} produk terpilih tidak dapat dihapus karena sudah memiliki riwayat transaksi.");
+        }
+
+        $message = "{$deleted} produk berhasil dihapus.";
+        if ($blocked > 0) {
+            $message .= " ({$blocked} produk dilewati karena sudah memiliki riwayat transaksi).";
+        }
+
+        return back()->with('success', $message);
     }
 
     public function export(Request $request)
     {
         $products = $this->catalogQuery($request)->get();
-        $filename = 'master-barang-'.now('Asia/Jakarta')->format('Ymd-His').'.csv';
+        $filename = 'master-barang-' . now('Asia/Jakarta')->format('Ymd-His') . '.csv';
 
         return response()->streamDownload(function () use ($products) {
             $handle = fopen('php://output', 'w');
-            // UTF-8 BOM agar Excel otomatis membaca kolom & karakter dengan benar
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-            fputcsv($handle, ['Kode SKU', 'Barcode', 'Nama Produk', 'Varian', 'Kategori', 'Isi Per Box (Pcs)', 'Status']);
+            fputcsv($handle, ['Kode SKU', 'Nama Produk', 'Varian', 'Kategori', 'Isi Per Box (Pcs)']);
 
             foreach ($products as $p) {
                 fputcsv($handle, [
                     $p->sku,
-                    $p->barcode ?? '-',
                     $p->name,
                     $p->variant ?? '-',
                     $p->category?->name ?? '-',
                     $p->box_pcs_ratio,
-                    $p->status === 'archived' ? 'Diarsipkan' : 'Aktif Baku',
                 ]);
             }
 
@@ -348,9 +348,8 @@ class ProductController extends Controller
         ]);
 
         $slug = Str::slug($data['name']);
-        // Pastikan slug tetap unik
         if (Category::where('slug', $slug)->exists()) {
-            $slug .= '-'.rand(10, 99);
+            $slug .= '-' . rand(10, 99);
         }
 
         Category::create([
@@ -371,22 +370,6 @@ class ProductController extends Controller
         $category->delete();
 
         return back()->with('success', "Kategori \"{$name}\" berhasil dihapus.");
-    }
-
-    public function bulkStatus(Request $request)
-    {
-        $data = $request->validate([
-            'ids' => 'required|array|min:1',
-            'ids.*' => 'exists:products,id',
-            'action' => 'required|in:archive,restore',
-        ]);
-
-        $newStatus = $data['action'] === 'archive' ? 'archived' : 'active';
-        $count = Product::whereIn('id', $data['ids'])->update(['status' => $newStatus]);
-
-        $label = $newStatus === 'archived' ? 'diarsipkan' : 'dipulihkan ke katalog aktif';
-
-        return back()->with('success', "{$count} produk berhasil {$label}.");
     }
 
     public function import(Request $request)
@@ -411,16 +394,16 @@ class ProductController extends Controller
         try {
             $header = fgetcsv($handle, null, ',', '"', '');
             $normalizedHeader = is_array($header)
-                ? array_map(static fn ($column): string => strtolower(trim((string) $column)), $header)
+                ? array_map(static fn($column): string => strtolower(trim((string) $column)), $header)
                 : [];
 
             if ($normalizedHeader !== []) {
                 $normalizedHeader[0] = ltrim($normalizedHeader[0], "\xEF\xBB\xBF");
             }
 
-            if ($normalizedHeader !== ['sku', 'barcode', 'nama produk', 'varian', 'kategori', 'isi per box']) {
+            if ($normalizedHeader !== ['sku', 'nama produk', 'varian', 'kategori', 'isi per box']) {
                 throw ValidationException::withMessages([
-                    'file' => 'Header CSV harus berurutan: SKU, Barcode, Nama Produk, Varian, Kategori, Isi Per Box.',
+                    'file' => 'Header CSV harus berurutan: SKU, Nama Produk, Varian, Kategori, Isi Per Box.',
                 ]);
             }
 
@@ -436,39 +419,33 @@ class ProductController extends Controller
                         continue;
                     }
 
-                    if (count($row) !== 6) {
+                    if (count($row) !== 5) {
                         throw ValidationException::withMessages([
-                            'file' => "Baris {$rowNumber} harus memiliki tepat 6 kolom.",
+                            'file' => "Baris {$rowNumber} harus memiliki tepat 5 kolom.",
                         ]);
                     }
 
-                    $sku = strtoupper(trim((string) $row[0]));
-                    $barcode = trim((string) $row[1]) ?: null;
-                    $name = trim((string) $row[2]);
-                    $variant = trim((string) $row[3]) ?: null;
-                    $categoryName = trim((string) $row[4]);
+                    $rawSku = strtoupper(trim((string) $row[0]));
+                    $name = trim((string) $row[1]);
+                    $variant = trim((string) $row[2]) ?: null;
+                    $categoryName = trim((string) $row[3]);
                     $categorySlug = Str::slug($categoryName);
-                    $ratioValue = trim((string) $row[5]);
+                    $ratioValue = trim((string) $row[4]);
 
                     if (
-                        $sku === ''
-                        || $name === ''
+                        $name === ''
                         || $categoryName === ''
                         || $categorySlug === ''
-                        || ! ctype_digit($ratioValue)
+                        || !ctype_digit($ratioValue)
                         || (int) $ratioValue < 1
                     ) {
                         throw ValidationException::withMessages([
-                            'file' => "Baris {$rowNumber}: SKU, nama produk, kategori, dan isi per box wajib diisi dengan benar.",
+                            'file' => "Baris {$rowNumber}: nama produk, kategori, dan isi per box wajib diisi dengan benar.",
                         ]);
                     }
 
-                    if (
-                        Product::where('sku', $sku)->exists()
-                        || ($barcode !== null && Product::where('barcode', $barcode)->exists())
-                    ) {
+                    if ($rawSku !== '' && Product::where('sku', $rawSku)->exists()) {
                         $skipped++;
-
                         continue;
                     }
 
@@ -477,9 +454,10 @@ class ProductController extends Controller
                         ['name' => $categoryName],
                     );
 
+                    $sku = $rawSku !== '' ? $rawSku : $this->buildNextSku($category->slug);
+
                     Product::create([
                         'sku' => $sku,
-                        'barcode' => $barcode,
                         'name' => $name,
                         'variant' => $variant,
                         'category_id' => $category->id,
@@ -505,7 +483,7 @@ class ProductController extends Controller
         return back()->with(
             'success',
             "Import selesai: {$result['imported']} produk baru ditambahkan"
-                .($result['skipped'] ? " ({$result['skipped']} duplikat dilewati)." : '.'),
+            . ($result['skipped'] ? " ({$result['skipped']} duplikat dilewati)." : '.'),
         );
     }
 }

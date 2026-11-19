@@ -11,7 +11,7 @@ use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
 // ========== DASHBOARD ==========
-Route::get('/', fn () => redirect()->route('dashboard.index'));
+Route::get('/', fn() => redirect()->route('dashboard.index'));
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
 // Master Barang
@@ -19,12 +19,11 @@ Route::get('/products', [ProductController::class, 'index'])->name('products.ind
 Route::post('/products', [ProductController::class, 'store'])->name('products.store');
 Route::get('/products/generate-sku', [ProductController::class, 'generateSku'])->name('products.generate-sku');
 Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
-Route::post('/products/bulk-status', [ProductController::class, 'bulkStatus'])->name('products.bulk-status');
+Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulk-delete');
 Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 Route::patch('/products/{product}', [ProductController::class, 'update'])->name('products.update');
-Route::patch('/products/{product}/archive', [ProductController::class, 'archive'])->name('products.archive');
-Route::patch('/products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
 // Manajemen Kategori Cepat
 Route::post('/categories', [ProductController::class, 'storeCategory'])->name('categories.store');
