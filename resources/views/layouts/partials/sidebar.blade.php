@@ -6,7 +6,7 @@
                 <span class="material-symbols-outlined text-[22px]">inventory_2</span>
             </div>
             <div class="flex flex-col">
-                <span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">GrosirBox <span class="text-primary">PRO</span></span>
+                <span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">SUPOS <span class="text-primary">Sinar Utama</span></span>
                 <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mt-1">Box-Pcs Engine v2.4</span>
             </div>
             </div>

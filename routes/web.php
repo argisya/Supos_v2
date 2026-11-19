@@ -46,13 +46,10 @@ Route::get('/outgoing-goods/{transaction}/receipt', [OutgoingGoodsController::cl
 Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 'rollback'])->name('outgoing-goods.rollback');
 
 // Stok Barang
-Route::prefix('stock')->name('stock.')->group(function () {
-    Route::get('/', [StockController::class, 'index'])->name('index');
-    Route::post('/alert-threshold', [StockController::class, 'updateAlertThreshold'])->name('alert-threshold');
-    Route::post('/opname', [StockController::class, 'storeOpname'])->name('opname');
-    Route::get('/export', [StockController::class, 'export'])->name('export');
-    Route::get('/{product}/mutations', [StockController::class, 'mutations'])->name('mutations');
-});
+Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+Route::post('/stock/alert-threshold', [StockController::class, 'updateAlertThreshold'])->name('stock.alert-threshold');
+Route::get('/stock/export', [StockController::class, 'export'])->name('stock.export');
+Route::get('/stock/{product}/mutations', [StockController::class, 'mutations'])->name('stock.mutations');
 
 // Buku Tagihan
 Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');

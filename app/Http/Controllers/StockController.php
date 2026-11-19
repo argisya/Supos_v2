@@ -7,7 +7,6 @@ use App\Models\IncomingTransaction;
 use App\Models\OutgoingTransaction;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
@@ -37,19 +36,19 @@ class StockController extends Controller
             ->get();
 
         $totalAssetValue = 0.0;
-        $totalVolumeBox  = 0;
-        $totalVolumePcs  = 0;
+        $totalVolumeBox = 0;
+        $totalVolumePcs = 0;
         $aman = $menipis = $habis = 0;
 
         foreach ($allProducts as $p) {
-            $ratio     = max(1, (int) $p->box_pcs_ratio);
+            $ratio = max(1, (int) $p->box_pcs_ratio);
             $threshold = max(1, (int) ($p->min_stock_box ?? 10));
-            $boxFloat  = $p->stock_pcs / $ratio;
-            $priceBox  = (float) ($p->last_price_box ?? 0);
+            $boxFloat = $p->stock_pcs / $ratio;
+            $priceBox = (float) ($p->last_price_box ?? 0);
 
             $totalAssetValue += $boxFloat * $priceBox;
-            $totalVolumeBox  += intdiv((int) $p->stock_pcs, $ratio);
-            $totalVolumePcs  += (int) $p->stock_pcs;
+            $totalVolumeBox += intdiv((int) $p->stock_pcs, $ratio);
+            $totalVolumePcs += (int) $p->stock_pcs;
 
             if ((int) $p->stock_pcs <= 0) {
                 $habis++;
@@ -61,46 +60,52 @@ class StockController extends Controller
         }
 
         $today = now('Asia/Jakarta')->toDateString();
-        $todayInBox  = (int) IncomingTransaction::whereDate('received_at', $today)->sum('box_qty');
+        $todayInBox = (int) IncomingTransaction::whereDate('received_at', $today)->sum('box_qty');
         $todayOutBox = (int) OutgoingTransaction::whereDate('sold_at', $today)->sum('box_qty');
 
         $kpi = [
-            'total_sku'        => $allProducts->count(),
-            'total_asset'      => (int) round($totalAssetValue),
+            'total_sku' => $allProducts->count(),
+            'total_asset' => (int) round($totalAssetValue),
             'total_volume_box' => $totalVolumeBox,
             'total_volume_pcs' => $totalVolumePcs,
-            'aman'             => $aman,
-            'menipis'          => $menipis,
-            'habis'            => $habis,
-            'today_in_box'     => $todayInBox,
-            'today_out_box'    => $todayOutBox,
+            'aman' => $aman,
+            'menipis' => $menipis,
+            'habis' => $habis,
+            'today_in_box' => $todayInBox,
+            'today_out_box' => $todayOutBox,
         ];
 
         $status = strtoupper($request->input('status', 'SEMUA'));
-        if (! in_array($status, ['AMAN', 'MENIPIS', 'HABIS'], true)) {
+        if (!in_array($status, ['AMAN', 'MENIPIS', 'HABIS'], true)) {
             $status = 'SEMUA';
         }
 
-        $cat  = $request->input('category', 'all');
+        $cat = $request->input('category', 'all');
         $sort = $request->input('sort', 'stok_asc');
 
         $products = $this->buildFilteredQuery($request, $status, $cat, $sort, $subqueries)
             ->paginate(12)
             ->withQueryString();
 
-        $categories     = Category::withCount(['products' => fn ($q) => $q->active()])->orderBy('name')->get();
+        $categories = Category::withCount(['products' => fn($q) => $q->active()])->orderBy('name')->get();
         $productOptions = $allProducts->sortBy('name')->values();
 
         return view('stock.index', compact(
-            'kpi', 'products', 'categories', 'productOptions', 'status', 'cat', 'sort'
+            'kpi',
+            'products',
+            'categories',
+            'productOptions',
+            'status',
+            'cat',
+            'sort'
         ));
     }
 
     public function updateAlertThreshold(Request $request)
     {
         $data = $request->validate([
-            'scope'         => 'required|in:single,all',
-            'product_id'    => 'nullable|required_if:scope,single|exists:products,id',
+            'scope' => 'required|in:single,all',
+            'product_id' => 'nullable|required_if:scope,single|exists:products,id',
             'min_stock_box' => 'required|integer|min:1|max:10000',
         ]);
 
@@ -116,41 +121,6 @@ class StockController extends Controller
         return redirect()->route('stock.index')->with('success', $msg);
     }
 
-    public function storeOpname(Request $request)
-    {
-        $data = $request->validate([
-            'product_id'   => 'required|exists:products,id',
-            'physical_box' => 'required|integer|min:0',
-            'physical_pcs' => 'required|integer|min:0',
-            'notes'        => 'nullable|string|max:255',
-        ]);
-
-        $summary = DB::transaction(function () use ($data) {
-            $product = Product::query()->lockForUpdate()->findOrFail($data['product_id']);
-            $ratio   = max(1, (int) $product->box_pcs_ratio);
-
-            $oldStockPcs = (int) $product->stock_pcs;
-            $newStockPcs = ($data['physical_box'] * $ratio) + $data['physical_pcs'];
-            $diffPcs     = $newStockPcs - $oldStockPcs;
-
-            $product->update(['stock_pcs' => $newStockPcs]);
-
-            return [
-                'name' => $product->name,
-                'diff' => $diffPcs,
-                'new'  => $newStockPcs,
-            ];
-        });
-
-        $diffLabel = $summary['diff'] >= 0
-            ? '+' . number_format($summary['diff'], 0, ',', '.')
-            : number_format($summary['diff'], 0, ',', '.');
-
-        return redirect()
-            ->route('stock.index')
-            ->with('success', "Opname {$summary['name']} tersimpan (Selisih {$diffLabel} Pcs → Stok Baru: " . number_format($summary['new'], 0, ',', '.') . ' Pcs).');
-    }
-
     public function mutations(Product $product)
     {
         $incoming = IncomingTransaction::with('supplier')
@@ -159,16 +129,16 @@ class StockController extends Controller
             ->orderByDesc('id')
             ->limit(25)
             ->get()
-            ->map(fn ($trx) => [
-                'type'       => 'MASUK',
-                'ref_no'     => $trx->no_faktur,
-                'date'       => $trx->received_at?->format('d M Y') ?? '-',
-                'sort_date'  => ($trx->received_at?->format('Y-m-d') ?? '1970-01-01') . ' ' . ($trx->created_at?->format('H:i:s') ?? '00:00:00'),
-                'party'      => $trx->supplier?->name ?? 'Supplier',
-                'box_qty'    => (int) $trx->box_qty,
-                'total_pcs'  => (int) $trx->total_pcs,
+            ->map(fn($trx) => [
+                'type' => 'MASUK',
+                'ref_no' => $trx->no_faktur,
+                'date' => $trx->received_at?->format('d M Y') ?? '-',
+                'sort_date' => ($trx->received_at?->format('Y-m-d') ?? '1970-01-01') . ' ' . ($trx->created_at?->format('H:i:s') ?? '00:00:00'),
+                'party' => $trx->supplier?->name ?? 'Supplier',
+                'box_qty' => (int) $trx->box_qty,
+                'total_pcs' => (int) $trx->total_pcs,
                 'unit_price' => (int) $trx->price_per_box,
-                'subtotal'   => (int) $trx->subtotal,
+                'subtotal' => (int) $trx->subtotal,
             ]);
 
         $outgoing = OutgoingTransaction::with('customer')
@@ -177,22 +147,17 @@ class StockController extends Controller
             ->orderByDesc('id')
             ->limit(25)
             ->get()
-            ->map(fn ($trx) => [
-                'type'       => 'KELUAR',
-                'ref_no'     => $trx->no_invoice,
-                'date'       => $trx->sold_at?->format('d M Y') ?? '-',
-                'sort_date'  => ($trx->sold_at?->format('Y-m-d') ?? '1970-01-01') . ' ' . ($trx->created_at?->format('H:i:s') ?? '00:00:00'),
-                'party'      => $trx->customer?->name ?? 'Pelanggan Grosir',
-                'box_qty'    => (int) $trx->box_qty,
-                'total_pcs'  => (int) $trx->total_pcs,
+            ->map(fn($trx) => [
+                'type' => 'KELUAR',
+                'ref_no' => $trx->no_invoice,
+                'date' => $trx->sold_at?->format('d M Y') ?? '-',
+                'sort_date' => ($trx->sold_at?->format('Y-m-d') ?? '1970-01-01') . ' ' . ($trx->created_at?->format('H:i:s') ?? '00:00:00'),
+                'party' => $trx->customer?->name ?? 'Pelanggan Grosir',
+                'box_qty' => (int) $trx->box_qty,
+                'total_pcs' => (int) $trx->total_pcs,
                 'unit_price' => (int) $trx->sell_per_box,
-                'subtotal'   => (int) $trx->subtotal,
+                'subtotal' => (int) $trx->subtotal,
             ]);
-
-        $totalInAll  = (int) IncomingTransaction::where('product_id', $product->id)->sum('total_pcs');
-        $totalOutAll = (int) OutgoingTransaction::where('product_id', $product->id)->sum('total_pcs');
-        $ledgerStock = $totalInAll - $totalOutAll;
-        $opnameAdj   = (int) $product->stock_pcs - $ledgerStock;
 
         $history = $incoming->concat($outgoing)
             ->sortByDesc('sort_date')
@@ -203,15 +168,14 @@ class StockController extends Controller
 
         return response()->json([
             'product' => [
-                'id'            => $product->id,
-                'sku'           => $product->sku,
-                'name'          => $product->name,
-                'ratio'         => $ratio,
-                'stock_pcs'     => (int) $product->stock_pcs,
-                'stock_box'     => intdiv((int) $product->stock_pcs, $ratio),
-                'rem_pcs'       => (int) $product->stock_pcs % $ratio,
+                'id' => $product->id,
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'ratio' => $ratio,
+                'stock_pcs' => (int) $product->stock_pcs,
+                'stock_box' => intdiv((int) $product->stock_pcs, $ratio),
+                'rem_pcs' => (int) $product->stock_pcs % $ratio,
                 'min_stock_box' => (int) ($product->min_stock_box ?? 10),
-                'opname_adj'    => $opnameAdj,
             ],
             'mutations' => $history,
         ]);
@@ -228,10 +192,10 @@ class StockController extends Controller
         ];
 
         $status = strtoupper($request->input('status', 'SEMUA'));
-        if (! in_array($status, ['AMAN', 'MENIPIS', 'HABIS'], true)) {
+        if (!in_array($status, ['AMAN', 'MENIPIS', 'HABIS'], true)) {
             $status = 'SEMUA';
         }
-        $cat  = $request->input('category', 'all');
+        $cat = $request->input('category', 'all');
         $sort = $request->input('sort', 'stok_asc');
 
         $products = $this->buildFilteredQuery($request, $status, $cat, $sort, $subqueries)->get();
@@ -256,13 +220,13 @@ class StockController extends Controller
             ], ';');
 
             foreach ($products as $p) {
-                $ratio     = max(1, (int) $p->box_pcs_ratio);
+                $ratio = max(1, (int) $p->box_pcs_ratio);
                 $threshold = max(1, (int) ($p->min_stock_box ?? 10));
-                $boxUtuh   = intdiv((int) $p->stock_pcs, $ratio);
-                $sisaPcs   = (int) $p->stock_pcs % $ratio;
-                $boxFloat  = $p->stock_pcs / $ratio;
-                $hppBox    = (float) ($p->last_price_box ?? 0);
-                $aset      = (int) round($boxFloat * $hppBox);
+                $boxUtuh = intdiv((int) $p->stock_pcs, $ratio);
+                $sisaPcs = (int) $p->stock_pcs % $ratio;
+                $boxFloat = $p->stock_pcs / $ratio;
+                $hppBox = (float) ($p->last_price_box ?? 0);
+                $aset = (int) round($boxFloat * $hppBox);
 
                 $stLabel = $p->stock_pcs <= 0 ? 'HABIS' : ($boxFloat <= $threshold ? 'MENIPIS' : 'AMAN');
 
@@ -299,13 +263,12 @@ class StockController extends Controller
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('barcode', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             });
         }
 
         if ($cat !== 'all') {
-            $query->whereHas('category', fn ($q) => $q->where('slug', $cat));
+            $query->whereHas('category', fn($q) => $q->where('slug', $cat));
         }
 
         if ($status === 'HABIS') {
@@ -316,15 +279,15 @@ class StockController extends Controller
             $query->whereRaw("stock_pcs > COALESCE(min_stock_box, 10) * {$safeRatioSql}");
         }
 
-        $lastInSql  = 'COALESCE((SELECT MAX(received_at) FROM incoming_transactions WHERE product_id = products.id), "1970-01-01")';
+        $lastInSql = 'COALESCE((SELECT MAX(received_at) FROM incoming_transactions WHERE product_id = products.id), "1970-01-01")';
         $lastOutSql = 'COALESCE((SELECT MAX(sold_at) FROM outgoing_transactions WHERE product_id = products.id), "1970-01-01")';
 
         match ($sort) {
-            'stok_desc'  => $query->orderByDesc('stock_pcs'),
+            'stok_desc' => $query->orderByDesc('stock_pcs'),
             'nilai_desc' => $query->orderByRaw("((stock_pcs * 1.0 / {$safeRatioSql}) * COALESCE({$lastPriceSub}, 0)) DESC"),
-            'mutasi'     => $query->orderByRaw("(CASE WHEN {$lastInSql} >= {$lastOutSql} THEN {$lastInSql} ELSE {$lastOutSql} END) DESC"),
-            'nama_asc'   => $query->orderBy('name'),
-            default      => $query->orderBy('stock_pcs')->orderBy('name'),
+            'mutasi' => $query->orderByRaw("(CASE WHEN {$lastInSql} >= {$lastOutSql} THEN {$lastInSql} ELSE {$lastOutSql} END) DESC"),
+            'nama_asc' => $query->orderBy('name'),
+            default => $query->orderBy('stock_pcs')->orderBy('name'),
         };
 
         return $query;
