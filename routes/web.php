@@ -61,6 +61,7 @@ Route::delete('/receivables/payments/{payment}', [ReceivableController::class, '
 Route::get('/cash-ins', [CashInController::class, 'index'])->name('cash-ins.index');
 Route::get('/cash-ins/export', [CashInController::class, 'export'])->name('cash-ins.export');
 Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
+Route::get('/cash-ins/{cashIn}/receipt', [CashInController::class, 'receipt'])->name('cash-ins.receipt');
 Route::delete('/cash-ins/{cashIn}', [CashInController::class, 'destroy'])->name('cash-ins.destroy');
 
 // Kas Keluar

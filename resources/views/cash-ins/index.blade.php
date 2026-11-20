@@ -86,6 +86,11 @@
         ],
     ];
 
+    $sourceTypeLabels = [
+        'OutgoingTransaction' => 'Penjualan Barang',
+        'ReceivablePayment' => 'Pelunasan Tagihan',
+    ];
+
     $totalSource = max(0.01, array_sum(array_column($catBreakdown->toArray(), 'total')));
     $hasActiveFilter =
         $cat !== 'all' ||
@@ -93,12 +98,17 @@
         request()->filled('search') ||
         request()->filled('date_from') ||
         request()->filled('date_to');
+
+    $nowWib = \Illuminate\Support\Carbon::now('Asia/Jakarta');
+    $nowWibStr = $nowWib->format('Y-m-d');
+    $past7WibStr = $nowWib->copy()->subDays(6)->format('Y-m-d');
+    $month1WibStr = $nowWib->copy()->startOfMonth()->format('Y-m-d');
 @endphp
 
 @section('content')
     <div class="flex flex-col w-full pb-16 space-y-space-lg">
 
-        {{-- ============ HEADER (SERAGAM DENGAN BUKU TAGIHAN) ============ --}}
+        {{-- ============ HEADER ============ --}}
         <div class="flex flex-col gap-space-sm pt-space-xs">
             <div class="flex items-center gap-space-xs font-label-md text-label-md text-on-surface-variant">
                 <span class="hover:text-primary cursor-pointer">Sistem Grosir</span>
@@ -115,14 +125,15 @@
                             Kas Masuk & Penerimaan Dana
                         </h1>
                         <div class="flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-primary/10 text-primary">
-                            <span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                            <span class="w-2 h-2 rounded-full bg-primary"></span>
                             <span class="font-label-sm text-label-sm uppercase tracking-wider font-bold">Sinkronisasi Kas
                                 Masuk Aktif</span>
                         </div>
                     </div>
                     <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                        Pantau penjualan tunai, pelunasan piutang dari <span class="text-primary font-medium">Buku
-                            Tagihan</span>, dan penerimaan lainnya dalam satu jurnal dengan sumber transaksi yang dapat
+                        Pantau penjualan tunai, pelunasan piutang dari <a href="{{ route('receivables.index') }}"
+                            class="text-primary font-medium hover:underline">Buku
+                            Tagihan</a>, dan penerimaan lainnya dalam satu jurnal dengan sumber transaksi yang dapat
                         ditelusuri.
                     </p>
                 </div>
@@ -133,7 +144,7 @@
                         <span>Export Buku Kas (CSV)</span>
                     </a>
                     <button type="button" onclick="openCreateCashInModal()"
-                        class="h-10 px-space-lg rounded-xl bg-primary-container text-on-primary-container font-headline-sm text-body-sm font-bold flex items-center gap-space-xs shadow-[0_4px_20px_rgba(16,185,129,0.35)] hover:bg-primary transition-all active:scale-95 whitespace-nowrap cursor-pointer">
+                        class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-space-xs shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all active:scale-95 whitespace-nowrap cursor-pointer">
                         <span class="material-symbols-outlined text-[20px]">add_circle</span>
                         <span>Catat Penerimaan Non-Penjualan</span>
                     </button>
@@ -163,7 +174,7 @@
             </div>
         @endif
 
-        {{-- ============ PARTIAL: REKONSILIASI & KARTU REKENING ============ --}}
+        {{-- ============ PARTIAL: KARTU REKENING ============ --}}
         @include('cash-ins.partials.account-cards')
 
         {{-- ============ KPI CARDS ============ --}}
@@ -212,7 +223,7 @@
                     <span class="font-body-sm text-body-sm text-on-surface-variant">Dari {{ $todayCount }} transaksi hari
                         ini</span>
                     <span
-                        class="font-label-sm text-label-sm text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full">{{ now()->translatedFormat('d M') }}</span>
+                        class="font-label-sm text-label-sm text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full">{{ $nowWib->translatedFormat('d M') }}</span>
                 </div>
             </div>
 
@@ -250,29 +261,36 @@
                         <span class="material-symbols-outlined text-[18px]">pie_chart</span>
                     </div>
                 </div>
-                <div class="my-auto flex flex-col space-y-1.5">
-                    @php $hasCatData = false; @endphp
-                    @foreach ($catStyles as $key => $meta)
-                        @php
-                            $total = $catBreakdown[$key]['total'] ?? 0;
-                            if ($total <= 0) {
-                                continue;
-                            }
-                            $hasCatData = true;
-                            $pct = round(($total / $totalSource) * 100);
-                        @endphp
+                <div class="my-auto flex flex-col space-y-2">
+                    @php
+                        $topSources = collect($catStyles)
+                            ->map(function ($meta, $key) use ($catBreakdown, $totalSource) {
+                                $total = $catBreakdown[$key]['total'] ?? 0;
+                                return [
+                                    'label' => $meta['label'],
+                                    'dot' => $meta['dot'],
+                                    'text' => $meta['text'],
+                                    'total' => $total,
+                                    'pct' => $total > 0 ? round(($total / $totalSource) * 100) : 0,
+                                ];
+                            })
+                            ->filter(fn($item) => $item['total'] > 0)
+                            ->sortByDesc('total')
+                            ->take(3);
+                    @endphp
+
+                    @forelse ($topSources as $src)
                         <div class="flex items-center justify-between font-body-sm text-body-sm">
                             <span class="text-on-surface font-medium flex items-center gap-1.5 truncate pr-2">
-                                <span class="w-2 h-2 rounded-full shrink-0 {{ $meta['dot'] }}"></span>
-                                <span class="truncate">{{ $meta['label'] }}</span>
+                                <span class="w-2 h-2 rounded-full shrink-0 {{ $src['dot'] }}"></span>
+                                <span class="truncate">{{ $src['label'] }}</span>
                             </span>
-                            <span class="font-mono font-bold shrink-0 {{ $meta['text'] }}">{{ $pct }}%</span>
+                            <span class="font-mono font-bold shrink-0 {{ $src['text'] }}">{{ $src['pct'] }}%</span>
                         </div>
-                    @endforeach
-                    @if (!$hasCatData)
+                    @empty
                         <span class="font-body-sm text-body-sm text-on-surface-variant">Belum ada pemasukan bulan
                             ini.</span>
-                    @endif
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -313,7 +331,7 @@
                         @php $active = $cat === $t['value']; @endphp
                         <button type="button" onclick="selectCashInCategory('{{ $t['value'] }}')"
                             class="px-space-md py-space-xs rounded-xl font-headline-sm text-body-sm flex items-center gap-space-xs whitespace-nowrap transition-colors cursor-pointer
-                            {{ $active ? 'bg-primary-container text-on-primary-container font-bold shadow-sm' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface' }}">
+                            {{ $active ? 'bg-primary text-on-primary font-bold shadow-sm' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface' }}">
                             <span>{{ $t['label'] }}</span>
                             <span
                                 class="px-1.5 py-0.2 rounded-full {{ $t['count_class'] }} font-label-sm text-label-sm">{{ $t['count'] }}</span>
@@ -321,18 +339,23 @@
                     @endforeach
                 </div>
 
-                {{-- Preset Periode Cepat --}}
+                {{-- Preset Periode Cepat (WIB) --}}
+                @php
+                    $isTodayPreset = request('date_from') === $nowWibStr && request('date_to') === $nowWibStr;
+                    $is7DaysPreset = request('date_from') === $past7WibStr && request('date_to') === $nowWibStr;
+                    $isMonthPreset = request('date_from') === $month1WibStr && request('date_to') === $nowWibStr;
+                @endphp
                 <div class="flex items-center gap-space-xs flex-wrap">
                     <button type="button" onclick="setCashInQuickDate('today')"
-                        class="h-8 px-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm font-semibold transition-colors cursor-pointer">
+                        class="h-8 px-space-sm rounded-lg font-label-sm text-label-sm font-semibold transition-colors cursor-pointer {{ $isTodayPreset ? 'bg-primary text-on-primary' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface' }}">
                         Hari Ini
                     </button>
                     <button type="button" onclick="setCashInQuickDate('7days')"
-                        class="h-8 px-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm font-semibold transition-colors cursor-pointer">
+                        class="h-8 px-space-sm rounded-lg font-label-sm text-label-sm font-semibold transition-colors cursor-pointer {{ $is7DaysPreset ? 'bg-primary text-on-primary' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface' }}">
                         7 Hari Terakhir
                     </button>
                     <button type="button" onclick="setCashInQuickDate('month')"
-                        class="h-8 px-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm font-semibold transition-colors cursor-pointer">
+                        class="h-8 px-space-sm rounded-lg font-label-sm text-label-sm font-semibold transition-colors cursor-pointer {{ $isMonthPreset ? 'bg-primary text-on-primary' : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface' }}">
                         Bulan Ini
                     </button>
                     @if ($hasActiveFilter)
@@ -354,8 +377,16 @@
                         <span
                             class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
                         <input name="search" id="ciSearchInput" value="{{ request('search') }}"
-                            placeholder="Cari No. KM, faktur, pelanggan, produk, keterangan..."
-                            class="w-full h-10 pl-10 pr-space-md rounded-xl bg-surface-container text-on-surface placeholder:text-on-surface-variant/60 font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            placeholder="Cari faktur, pelanggan, produk, referensi, keterangan... [/]"
+                            class="w-full h-10 pl-10 pr-9 rounded-xl bg-surface-container text-on-surface placeholder:text-on-surface-variant/60 font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                        @if (request()->filled('search'))
+                            <button type="button"
+                                onclick="document.getElementById('ciSearchInput').value=''; document.getElementById('ciFilterForm').submit();"
+                                title="Hapus kata kunci pencarian"
+                                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        @endif
                     </div>
                 </div>
 
@@ -404,10 +435,10 @@
                     <thead>
                         <tr
                             class="bg-surface-container text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
-                            <th class="py-space-md px-space-md font-bold">No. Kas Masuk & Waktu</th>
+                            <th class="py-space-md px-space-md font-bold">Tanggal & Waktu</th>
                             <th class="py-space-md px-space-md font-bold">Sumber / Dari</th>
                             <th class="py-space-md px-space-md font-bold">Kategori & Rincian</th>
-                            <th class="py-space-md px-space-md font-bold">Akun Penampung</th>
+                            <th class="py-space-md px-space-md font-bold text-center">Akun Penampung</th>
                             <th class="py-space-md px-space-md font-bold text-right">Jumlah Kas Masuk</th>
                             <th class="py-space-md px-space-md font-bold text-center">Status</th>
                             <th class="py-space-md px-space-md font-bold text-center">Aksi</th>
@@ -428,47 +459,58 @@
                                     'dot' => 'bg-primary',
                                 ];
                                 $isAuto = $ci->is_auto;
+
+                                $receivedWib = $ci->received_at;
+                                $dateLabel = $receivedWib ? $receivedWib->translatedFormat('d M Y') : '-';
+                                $timeLabel = $receivedWib ? $receivedWib->format('H:i') . ' WIB' : '-';
+                                $fullTimeLabel = $receivedWib
+                                    ? $receivedWib->translatedFormat('d M Y, H:i') . ' WIB'
+                                    : '-';
+
+                                $rawSourceType = $ci->source_type ? class_basename($ci->source_type) : null;
+                                $sourceTypeLabel = $rawSourceType
+                                    ? $sourceTypeLabels[$rawSourceType] ?? $rawSourceType
+                                    : 'Input Manual';
+
                                 $sourceName =
                                     $ci->source?->customer?->name ??
                                     ($ci->source?->product?->name ?? 'Penerimaan Manual');
+
                                 $rowJson = [
-                                    'code' => $ci->code,
-                                    'received_at' => $ci->received_at->translatedFormat('d M Y, H:i') . ' WIB',
+                                    'received_at' => $fullTimeLabel,
                                     'is_auto' => $isAuto,
-                                    'source_type' => $ci->source_type
-                                        ? class_basename($ci->source_type)
-                                        : 'Manual Input',
+                                    'source_type' => $sourceTypeLabel,
                                     'source_name' => $sourceName,
                                     'category' => $cStyle['label'],
                                     'account' => $aStyle['label'],
                                     'amount' => $fmt($ci->amount),
                                     'reference_no' => $ci->reference_no ?? '-',
-                                    'notes' => $ci->notes ?? '-',
+                                    'notes' => $ci->notes ?: '-',
+                                    'receipt_url' => route('cash-ins.receipt', $ci),
                                 ];
                             @endphp
                             <tr class="hover:bg-surface-container/60 transition-colors group">
-                                <td class="py-space-md px-space-md align-top">
+                                <td class="py-space-md px-space-md align-middle whitespace-nowrap">
                                     <div class="flex flex-col">
                                         <span
-                                            class="font-label-md text-label-md font-bold text-on-surface group-hover:text-primary transition-colors">{{ $ci->code }}</span>
+                                            class="font-label-md text-label-md font-bold text-on-surface group-hover:text-primary transition-colors">{{ $dateLabel }}</span>
                                         <span
-                                            class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">{{ $ci->received_at->translatedFormat('d M Y, H:i') }}
-                                            WIB</span>
+                                            class="font-mono font-label-sm text-label-sm text-on-surface-variant mt-0.5">{{ $timeLabel }}</span>
                                         <span
                                             class="font-label-sm text-label-sm {{ $isAuto ? 'text-primary' : 'text-tertiary' }} flex items-center gap-0.5 mt-0.5">
                                             <span
-                                                class="material-symbols-outlined text-[12px]">{{ $isAuto ? 'link' : 'edit_note' }}</span>
-                                            {{ $isAuto ? 'Auto-Journal' : 'Manual Input' }}
+                                                class="material-symbols-outlined text-[12px]">{{ $isAuto ? 'sync' : 'edit_note' }}</span>
+                                            {{ $isAuto ? 'Otomatis Sistem' : 'Input Manual' }}
                                         </span>
                                     </div>
                                 </td>
-                                <td class="py-space-md px-space-md align-top">
+                                <td class="py-space-md px-space-md align-middle">
                                     <div class="flex flex-col">
                                         <span
                                             class="font-headline-sm text-body-md font-bold text-on-surface">{{ $sourceName }}</span>
-                                        @if ($ci->source_type)
+                                        @if ($rawSourceType)
                                             <span
-                                                class="font-label-sm text-label-sm text-on-surface-variant uppercase font-mono">{{ class_basename($ci->source_type) }}</span>
+                                                class="font-label-sm text-label-sm text-on-surface-variant">{{ $sourceTypeLabel }}</span>
                                         @endif
                                         @if ($ci->reference_no)
                                             <span class="font-mono font-label-sm text-label-sm text-tertiary mt-0.5">Ref:
@@ -476,31 +518,31 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="py-space-md px-space-md align-top">
+                                <td class="py-space-md px-space-md align-middle">
                                     <div class="flex flex-col items-start gap-1">
                                         <span
                                             class="px-2 py-0.5 rounded-full font-label-sm text-label-sm uppercase font-bold {{ $cStyle['badge'] }}">
                                             {{ $cStyle['label'] }}
                                         </span>
                                         <span
-                                            class="font-body-sm text-body-sm text-on-surface-variant">{{ Str::limit($ci->notes, 60) }}</span>
+                                            class="font-body-sm text-body-sm text-on-surface-variant">{{ Str::limit($ci->notes ?: '-', 60) }}</span>
                                     </div>
                                 </td>
-                                <td class="py-space-md px-space-md align-top">
-                                    <div class="flex items-center gap-1.5">
+                                <td class="py-space-md px-space-md align-middle text-center whitespace-nowrap">
+                                    <div class="inline-flex items-center justify-center gap-1.5">
                                         <span class="w-2 h-2 rounded-full {{ $aStyle['dot'] }}"></span>
                                         <span
                                             class="font-mono font-body-sm text-body-sm text-on-surface font-semibold">{{ $aStyle['label'] }}</span>
                                     </div>
                                 </td>
-                                <td class="py-space-md px-space-md align-top text-right">
+                                <td class="py-space-md px-space-md align-middle text-right whitespace-nowrap">
                                     <span
-                                        class="font-mono font-extrabold text-body-lg text-primary flex items-center gap-0.5 justify-end">
+                                        class="font-mono font-extrabold text-body-lg text-primary inline-flex items-center gap-0.5 justify-end">
                                         <span class="material-symbols-outlined text-[16px]">arrow_upward</span>
                                         +{{ $fmt($ci->amount) }}
                                     </span>
                                 </td>
-                                <td class="py-space-md px-space-md align-top text-center">
+                                <td class="py-space-md px-space-md align-middle text-center whitespace-nowrap">
                                     @if ($isAuto)
                                         <span
                                             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/15 text-primary font-label-sm text-label-sm uppercase font-bold tracking-wider">
@@ -515,27 +557,32 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="py-space-md px-space-md align-top text-center">
+                                <td class="py-space-md px-space-md align-middle text-center whitespace-nowrap">
                                     <div class="flex items-center justify-center gap-space-xs">
-                                        <button type="button" data-detail='@json($rowJson)'
+                                        <button type="button" data-detail="{{ json_encode($rowJson) }}"
                                             onclick="openCashInDetailModal(this)"
                                             class="h-8 w-8 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer"
                                             title="Lihat Detail">
                                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                                         </button>
-                                        <button type="button" data-detail='@json($rowJson)'
-                                            onclick="openCashInReceiptModal(this)"
-                                            class="h-8 w-8 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer"
+                                        <a href="{{ route('cash-ins.receipt', $ci) }}" target="_blank"
+                                            class="h-8 w-8 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors"
                                             title="Cetak Bukti Kas Masuk">
                                             <span class="material-symbols-outlined text-[18px]">print</span>
-                                        </button>
+                                        </a>
                                         @if (!$isAuto)
                                             <button type="button" data-url="{{ route('cash-ins.destroy', $ci) }}"
-                                                data-code="{{ $ci->code }}" onclick="openDeleteCashInModal(this)"
+                                                onclick="openDeleteCashInModal(this)"
                                                 class="h-8 w-8 rounded-lg bg-error/15 hover:bg-error text-error hover:text-on-error flex items-center justify-center transition-colors cursor-pointer"
                                                 title="Hapus Entri Manual">
                                                 <span class="material-symbols-outlined text-[18px]">delete</span>
                                             </button>
+                                        @else
+                                            <span
+                                                class="h-8 w-8 rounded-lg bg-surface-container text-on-surface-variant/40 flex items-center justify-center cursor-not-allowed"
+                                                title="Terkunci (Otomatis Sistem — Batalkan dari modul asal)">
+                                                <span class="material-symbols-outlined text-[16px]">lock</span>
+                                            </span>
                                         @endif
                                     </div>
                                 </td>
@@ -578,17 +625,16 @@
             <div class="flex items-center gap-space-md">
                 <div
                     class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-[0_0_16px_rgba(16,185,129,0.25)]">
-                    <span class="material-symbols-outlined text-[28px]">gavel</span>
+                    <span class="material-symbols-outlined text-[28px]">verified_user</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="font-headline-sm text-body-md font-bold text-on-surface">Prinsip Integritas Arus Kas Masuk
-                        SUPOS | Sinar Utama</span>
+                    <span class="font-headline-sm text-body-md font-bold text-on-surface">Pencatatan Kas Masuk Otomatis
+                        &amp; Terintegrasi</span>
                     <p class="font-body-sm text-body-sm text-on-surface-variant max-w-3xl leading-relaxed">
-                        Sistem menerapkan <strong class="text-on-surface">Zero Double-Entry</strong> — Kasir dan staf
-                        finance tidak perlu mencatat ulang pembayaran yang telah diotorisasi di modul <strong
-                            class="text-on-surface">Barang Keluar</strong> atau <strong class="text-primary">Buku
-                            Tagihan</strong>. Semua kode kas masuk diterbitkan otomatis dengan audit trail nomor faktur
-                        asal.
+                        Kasir tidak perlu mencatat ulang pembayaran lunas dari <strong class="text-on-surface">Barang
+                            Keluar</strong> maupun cicilan dari <a href="{{ route('receivables.index') }}"
+                            class="text-primary font-semibold hover:underline">Buku Tagihan</a>. Semua penerimaan
+                        tercatat otomatis lengkap dengan waktu WIB dan nomor referensi asalnya.
                     </p>
                 </div>
             </div>
@@ -596,12 +642,12 @@
                 <div
                     class="px-space-sm py-1 rounded-lg bg-surface-container flex items-center gap-1.5 font-label-sm text-label-sm">
                     <span class="material-symbols-outlined text-primary text-[16px]">shield</span>
-                    <span>Zero Double-Entry</span>
+                    <span>Anti Input Ganda</span>
                 </div>
                 <div
                     class="px-space-sm py-1 rounded-lg bg-surface-container flex items-center gap-1.5 font-label-sm text-label-sm">
                     <span class="material-symbols-outlined text-primary text-[16px]">sync</span>
-                    <span>Jurnal Otomatis</span>
+                    <span>Sinkronisasi Otomatis</span>
                 </div>
             </div>
         </div>
@@ -617,7 +663,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             const createModal = document.getElementById('createCashInModal');
             const detailModal = document.getElementById('cashInDetailModal');
-            const receiptModal = document.getElementById('cashInReceiptModal');
             const deleteModal = document.getElementById('deleteCashInModal');
 
             function showModal(el) {
@@ -646,7 +691,14 @@
 
             // ---- Modal Input Kas Masuk Manual ----
             window.openCreateCashInModal = function() {
+                const timeInput = document.getElementById('receivedAtInput');
+                if (timeInput && !timeInput.value) {
+                    timeInput.value = '{{ $nowWib->format('Y-m-d\TH:i') }}';
+                }
                 showModal(createModal);
+                setTimeout(function() {
+                    document.getElementById('ciCategorySelect')?.focus();
+                }, 50);
             };
             window.closeCreateCashInModal = function() {
                 hideModal(createModal);
@@ -656,7 +708,6 @@
             window.openCashInDetailModal = function(btn) {
                 const d = parseBtnData(btn);
                 if (!d) return;
-                document.getElementById('detCode').textContent = d.code;
                 document.getElementById('detAmount').textContent = d.amount;
                 document.getElementById('detTime').textContent = d.received_at;
                 document.getElementById('detAccount').textContent = d.account;
@@ -664,57 +715,21 @@
                 document.getElementById('detRef').textContent = d.reference_no;
                 document.getElementById('detSource').textContent = d.source_name + ' (' + d.source_type + ')';
                 document.getElementById('detNotes').textContent = d.notes;
+
+                const printLink = document.getElementById('detPrintLink');
+                if (printLink && d.receipt_url) {
+                    printLink.href = d.receipt_url;
+                }
                 showModal(detailModal);
             };
             window.closeCashInDetailModal = function() {
                 hideModal(detailModal);
             };
 
-            // ---- Modal Print Bukti ----
-            window.openCashInReceiptModal = function(btn) {
-                const d = parseBtnData(btn);
-                if (!d) return;
-                document.getElementById('recCode').textContent = d.code;
-                document.getElementById('recTime').textContent = d.received_at;
-                document.getElementById('recAccount').textContent = d.account;
-                document.getElementById('recCategory').textContent = d.category;
-                document.getElementById('recSource').textContent = d.source_name;
-                document.getElementById('recRef').textContent = d.reference_no;
-                document.getElementById('recAmount').textContent = d.amount;
-                document.getElementById('recNotes').textContent = d.notes;
-                showModal(receiptModal);
-            };
-            window.closeCashInReceiptModal = function() {
-                hideModal(receiptModal);
-            };
-            window.printCashInSlip = function() {
-                const area = document.getElementById('printableReceiptArea');
-                if (!area) return;
-                const win = window.open('', '_blank', 'width=420,height=620');
-                if (!win) {
-                    window.alert('Izinkan pop-up pada browser untuk mencetak bukti kas masuk.');
-                    return;
-                }
-                const htmlContent = [
-                    '<!doctype html><html><head><title>Bukti Kas Masuk<\/title>',
-                    '<style>body{font-family:monospace;padding:16px;font-size:12px;color:#0f172a;}.flex{display:flex;justify-content:space-between;gap:12px;}.text-center{text-align:center;}.border-b{border-bottom:1px dashed #666;padding-bottom:8px;margin-bottom:8px;}.border-y{border-top:1px dashed #666;border-bottom:1px dashed #666;padding:8px 0;margin:8px 0;}.pt-4{padding-top:24px;}.space-y-1>*+*{margin-top:4px;}.space-y-3>*+*{margin-top:12px;}.text-slate-600{color:#475569;}.border-slate-400{border-color:#94a3b8;}@media print{body{padding:0;}}<\/style>',
-                    '<\/head><body>',
-                    area.innerHTML,
-                    '<\/body><\/html>'
-                ].join('');
-
-                win.document.write(htmlContent);
-                win.document.close();
-                win.focus();
-                win.print();
-                win.close();
-            };
-
             // ---- Modal Hapus Entri Manual ----
             window.openDeleteCashInModal = function(btn) {
                 if (!btn || !btn.dataset) return;
                 document.getElementById('deleteCashInForm').action = btn.dataset.url;
-                document.getElementById('delCashInCode').textContent = btn.dataset.code;
                 showModal(deleteModal);
             };
             window.closeDeleteCashInModal = function() {
@@ -733,7 +748,7 @@
                 const preview = document.getElementById('nominalPreview');
                 if (!input || !preview) return;
                 const v = parseFloat(input.value) || 0;
-                preview.textContent = 'IDR ' + v.toLocaleString('id-ID');
+                preview.textContent = 'Rp ' + v.toLocaleString('id-ID');
             };
             window.selectCashInAccount = function(radio) {
                 document.querySelectorAll('.ci-account-card').forEach(function(card) {
@@ -747,7 +762,7 @@
                 }
             };
 
-            // ---- Filter & Preset Tanggal ----
+            // ---- Filter & Preset Tanggal (WIB) ----
             window.selectCashInCategory = function(val) {
                 const catInput = document.getElementById('ciCategoryInput');
                 const form = document.getElementById('ciFilterForm');
@@ -757,27 +772,20 @@
                 }
             };
             window.setCashInQuickDate = function(mode) {
-                const now = new Date();
-                const pad = function(n) {
-                    return String(n).padStart(2, '0');
-                };
-                const todayStr = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
                 const fromEl = document.getElementById('ciDateFrom');
                 const toEl = document.getElementById('ciDateTo');
                 const form = document.getElementById('ciFilterForm');
                 if (!fromEl || !toEl || !form) return;
 
                 if (mode === 'today') {
-                    fromEl.value = todayStr;
-                    toEl.value = todayStr;
+                    fromEl.value = '{{ $nowWibStr }}';
+                    toEl.value = '{{ $nowWibStr }}';
                 } else if (mode === '7days') {
-                    const past = new Date(now.getTime() - (6 * 86400000));
-                    fromEl.value = past.getFullYear() + '-' + pad(past.getMonth() + 1) + '-' + pad(past
-                    .getDate());
-                    toEl.value = todayStr;
+                    fromEl.value = '{{ $past7WibStr }}';
+                    toEl.value = '{{ $nowWibStr }}';
                 } else if (mode === 'month') {
-                    fromEl.value = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-01';
-                    toEl.value = todayStr;
+                    fromEl.value = '{{ $month1WibStr }}';
+                    toEl.value = '{{ $nowWibStr }}';
                 }
                 form.submit();
             };
@@ -794,10 +802,18 @@
                 });
             }
 
-            // Tutup modal dengan tombol Escape
+            // Pintasan Keyboard '/' untuk fokus pencarian & 'Escape' untuk tutup modal
             document.addEventListener('keydown', function(event) {
-                if (event.key !== 'Escape') return;
-                [createModal, detailModal, receiptModal, deleteModal].forEach(hideModal);
+                if (event.key === 'Escape') {
+                    [createModal, detailModal, deleteModal].forEach(hideModal);
+                    return;
+                }
+                if (event.key === '/' && searchEl && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document
+                        .activeElement?.tagName)) {
+                    event.preventDefault();
+                    searchEl.focus();
+                    searchEl.select();
+                }
             });
 
             window.updateNominalPreview();
