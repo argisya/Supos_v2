@@ -16,12 +16,12 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 
 // Master Barang
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-Route::post('/products', [ProductController::class, 'store'])->name('products.store');
 Route::get('/products/generate-sku', [ProductController::class, 'generateSku'])->name('products.generate-sku');
 Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
+Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+Route::post('/products', [ProductController::class, 'store'])->name('products.store');
 Route::post('/products/bulk-delete', [ProductController::class, 'bulkDelete'])->name('products.bulk-delete');
 Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
-Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 Route::patch('/products/{product}', [ProductController::class, 'update'])->name('products.update');
 Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
@@ -40,16 +40,16 @@ Route::patch('/incoming-goods/{transaction}/pay', [IncomingGoodsController::clas
 
 // Barang Keluar
 Route::get('/outgoing-goods', [OutgoingGoodsController::class, 'index'])->name('outgoing-goods.index');
+Route::get('/outgoing-goods/{transaction}/receipt', [OutgoingGoodsController::class, 'receipt'])->name('outgoing-goods.receipt');
 Route::post('/outgoing-goods', [OutgoingGoodsController::class, 'store'])->name('outgoing-goods.store');
 Route::post('/outgoing-goods/customers', [OutgoingGoodsController::class, 'storeCustomer'])->name('outgoing-goods.customers.store');
-Route::get('/outgoing-goods/{transaction}/receipt', [OutgoingGoodsController::class, 'receipt'])->name('outgoing-goods.receipt');
 Route::delete('/outgoing-goods/{transaction}', [OutgoingGoodsController::class, 'rollback'])->name('outgoing-goods.rollback');
 
 // Stok Barang
 Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
-Route::post('/stock/alert-threshold', [StockController::class, 'updateAlertThreshold'])->name('stock.alert-threshold');
 Route::get('/stock/export', [StockController::class, 'export'])->name('stock.export');
 Route::get('/stock/{product}/mutations', [StockController::class, 'mutations'])->name('stock.mutations');
+Route::post('/stock/alert-threshold', [StockController::class, 'updateAlertThreshold'])->name('stock.alert-threshold');
 
 // Buku Tagihan
 Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
@@ -60,13 +60,14 @@ Route::delete('/receivables/payments/{payment}', [ReceivableController::class, '
 // Kas Masuk
 Route::get('/cash-ins', [CashInController::class, 'index'])->name('cash-ins.index');
 Route::get('/cash-ins/export', [CashInController::class, 'export'])->name('cash-ins.export');
-Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
 Route::get('/cash-ins/{cashIn}/receipt', [CashInController::class, 'receipt'])->name('cash-ins.receipt');
+Route::post('/cash-ins', [CashInController::class, 'store'])->name('cash-ins.store');
 Route::delete('/cash-ins/{cashIn}', [CashInController::class, 'destroy'])->name('cash-ins.destroy');
 
 // Kas Keluar
 Route::get('/cash-outs', [CashOutController::class, 'index'])->name('cash-outs.index');
 Route::get('/cash-outs/export', [CashOutController::class, 'export'])->name('cash-outs.export');
+Route::get('/cash-outs/{cashOut}/receipt', [CashOutController::class, 'receipt'])->name('cash-outs.receipt');
 Route::post('/cash-outs', [CashOutController::class, 'store'])->name('cash-outs.store');
 Route::post('/cash-outs/pay-supplier/{transaction}', [CashOutController::class, 'paySupplier'])->name('cash-outs.pay-supplier');
 Route::delete('/cash-outs/{cashOut}', [CashOutController::class, 'destroy'])->name('cash-outs.destroy');

@@ -6,6 +6,7 @@ use App\Models\CashIn;
 use App\Models\CashOut;
 use App\Models\IncomingTransaction;
 use App\Models\SupplierPayment;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -13,29 +14,33 @@ class CashOutController extends Controller
 {
     public function index(Request $request)
     {
-        $now = now('Asia/Jakarta');
+        $nowWib = now('Asia/Jakarta');
+        $todayStart = $nowWib->copy()->startOfDay()->timezone(config('app.timezone'));
+        $todayEnd = $nowWib->copy()->endOfDay()->timezone(config('app.timezone'));
+        $monthStart = $nowWib->copy()->startOfMonth()->timezone(config('app.timezone'));
+        $monthEnd = $nowWib->copy()->endOfMonth()->timezone(config('app.timezone'));
 
-        // ============ KPI ============
-        $monthQuery = CashOut::whereYear('paid_at', $now->year)
-            ->whereMonth('paid_at', $now->month);
+        // ============ KPI (AKURAT ZONA WAKTU WIB) ============
+        $monthQuery = CashOut::whereBetween('paid_at', [$monthStart, $monthEnd]);
 
         $monthTotal = (float) (clone $monthQuery)->sum('amount');
         $monthCount = (clone $monthQuery)->count();
 
-        $todayTotal = (float) CashOut::whereDate('paid_at', $now->toDateString())->sum('amount');
-        $todayCount = CashOut::whereDate('paid_at', $now->toDateString())->count();
+        $todayQuery = CashOut::whereBetween('paid_at', [$todayStart, $todayEnd]);
+        $todayTotal = (float) (clone $todayQuery)->sum('amount');
+        $todayCount = (clone $todayQuery)->count();
 
-        $todaySupplier = (float) CashOut::whereDate('paid_at', $now->toDateString())
+        $todaySupplier = (float) (clone $todayQuery)
             ->whereIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])
             ->sum('amount');
         $todayOps = max(0, $todayTotal - $todaySupplier);
 
         // ============ SALDO REALTIME PER AKUN (In - Out) ============
-        $inByAccount  = CashIn::selectRaw('account, SUM(amount) as total')->groupBy('account')->pluck('total', 'account');
+        $inByAccount = CashIn::selectRaw('account, SUM(amount) as total')->groupBy('account')->pluck('total', 'account');
         $outByAccount = CashOut::selectRaw('account, SUM(amount) as total')->groupBy('account')->pluck('total', 'account');
         $balances = [];
         foreach (CashIn::ACCOUNTS as $key => $_) {
-            $balances[$key] = (float) ($inByAccount[$key] ?? 0) - (float) ($outByAccount[$key] ?? 0);
+            $balances[$key] = max(0, (float) ($inByAccount[$key] ?? 0) - (float) ($outByAccount[$key] ?? 0));
         }
 
         // ============ DOMINAN KATEGORI BULAN INI ============
@@ -43,14 +48,14 @@ class CashOutController extends Controller
             ->selectRaw('category, SUM(amount) as total, COUNT(*) as count')
             ->groupBy('category')
             ->get()
-            ->mapWithKeys(fn ($r) => [$r->category => ['total' => (float) $r->total, 'count' => $r->count]]);
-        $catTotal = max(0.01, $catBreakdown->sum(fn ($v) => $v['total']));
+            ->mapWithKeys(fn($r) => [$r->category => ['total' => (float) $r->total, 'count' => $r->count]]);
+        $catTotal = max(0.01, $catBreakdown->sum(fn($v) => $v['total']));
 
         // ============ HUTANG SUPPLIER <= 5 HARI ============
         $upcomingDue = IncomingTransaction::with(['supplier', 'product'])
             ->where('payment_status', 'tempo')
             ->whereRaw('paid_amount < subtotal')
-            ->whereDate('due_date', '<=', $now->copy()->addDays(5)->toDateString())
+            ->whereDate('due_date', '<=', $nowWib->copy()->addDays(5)->toDateString())
             ->orderBy('due_date')
             ->get();
 
@@ -62,7 +67,7 @@ class CashOutController extends Controller
             ->get();
 
         // ============ BIAYA RUTIN TERAKHIR ============
-        $recurringCats  = ['biaya_listrik', 'logistik_armada', 'bensin_distribusi'];
+        $recurringCats = ['biaya_listrik', 'logistik_armada', 'bensin_distribusi'];
         $recurringCosts = collect($recurringCats)->mapWithKeys(function ($cat) {
             return [$cat => CashOut::where('category', $cat)->latest('paid_at')->first()];
         });
@@ -73,23 +78,44 @@ class CashOutController extends Controller
 
         // ============ TAB COUNTS ============
         $tabCounts = [
-            'all'         => CashOut::count(),
-            'supplier'    => CashOut::whereIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])->count(),
+            'all' => CashOut::count(),
+            'supplier' => CashOut::whereIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])->count(),
             'operasional' => CashOut::whereNotIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])->count(),
-            'manual'      => CashOut::whereNull('source_id')->count(),
+            'manual' => CashOut::whereNull('source_id')->count(),
         ];
 
         $hasActiveFilter = $cat !== 'all' || $acc !== 'all' || filled($request->search) || filled($from) || filled($to);
 
         return view('cash-outs.index', compact(
-            'monthTotal', 'monthCount', 'todayTotal', 'todayCount',
-            'todaySupplier', 'todayOps',
-            'balances', 'catBreakdown', 'catTotal',
-            'upcomingDue', 'openTempo',
-            'recurringCats', 'recurringCosts',
-            'cashOuts', 'cat', 'acc', 'sort', 'from', 'to',
-            'tabCounts', 'hasActiveFilter'
+            'monthTotal',
+            'monthCount',
+            'todayTotal',
+            'todayCount',
+            'todaySupplier',
+            'todayOps',
+            'balances',
+            'catBreakdown',
+            'catTotal',
+            'upcomingDue',
+            'openTempo',
+            'recurringCats',
+            'recurringCosts',
+            'cashOuts',
+            'cat',
+            'acc',
+            'sort',
+            'from',
+            'to',
+            'tabCounts',
+            'hasActiveFilter'
         ));
+    }
+
+    /** Halaman cetak bukti kas keluar (A4 Portrait — selaras dengan Kas Masuk) */
+    public function receipt(CashOut $cashOut)
+    {
+        $cashOut->load(['source.supplier']);
+        return view('cash-outs.receipt', compact('cashOut'));
     }
 
     /** Simpan pengeluaran operasional manual */
@@ -97,14 +123,14 @@ class CashOutController extends Controller
     {
         $data = $request->validate([
             'category' => 'required|in:biaya_operasional,biaya_listrik,gaji_staff,logistik_armada,bensin_distribusi,lain_lain',
-            'account'  => 'required|in:bca,mandiri,kas_tunai',
-            'amount'   => 'required|numeric|min:1',
-            'paid_at'  => 'nullable|date',
-            'notes'    => 'required|string|max:255',
+            'account' => 'required|in:bca,mandiri,kas_tunai',
+            'amount' => 'required|numeric|min:1',
+            'paid_at' => 'nullable|date',
+            'notes' => 'required|string|max:255',
         ], [
             'category.required' => 'Kategori pengeluaran wajib dipilih.',
-            'amount.min'        => 'Nominal pengeluaran minimal Rp 1.',
-            'notes.required'    => 'Keterangan pengeluaran wajib diisi.',
+            'amount.min' => 'Nominal pengeluaran minimal Rp 1.',
+            'notes.required' => 'Keterangan pengeluaran wajib diisi.',
         ]);
 
         if ($data['amount'] > $this->accountBalance($data['account'])) {
@@ -113,16 +139,20 @@ class CashOutController extends Controller
             ])->withInput(['active_tab' => 'ops'] + $request->all());
         }
 
-        DB::transaction(function () use ($data) {
+        $paidAt = filled($data['paid_at'])
+            ? Carbon::parse($data['paid_at'], 'Asia/Jakarta')->timezone(config('app.timezone'))
+            : now();
+
+        DB::transaction(function () use ($data, $paidAt) {
             CashOut::create([
-                'code'        => CashOut::generateCode(false, true),
-                'category'    => $data['category'],
-                'account'     => $data['account'],
-                'amount'      => $data['amount'],
-                'paid_at'     => $data['paid_at'] ?? now('Asia/Jakarta'),
+                'code' => CashOut::generateCode(false, true),
+                'category' => $data['category'],
+                'account' => $data['account'],
+                'amount' => $data['amount'],
+                'paid_at' => $paidAt,
                 'source_type' => null,
-                'source_id'   => null,
-                'notes'       => $data['notes'],
+                'source_id' => null,
+                'notes' => $data['notes'],
             ]);
         });
 
@@ -134,12 +164,12 @@ class CashOutController extends Controller
     public function paySupplier(Request $request, IncomingTransaction $transaction)
     {
         $data = $request->validate([
-            'amount'  => 'required|numeric|min:1',
+            'amount' => 'required|numeric|min:1',
             'paid_at' => 'required|date',
             'account' => 'required|in:bca,mandiri,kas_tunai',
-            'notes'   => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:255',
         ], [
-            'amount.min'       => 'Jumlah pembayaran minimal Rp 1.',
+            'amount.min' => 'Jumlah pembayaran minimal Rp 1.',
             'paid_at.required' => 'Tanggal pembayaran wajib diisi.',
         ]);
 
@@ -161,17 +191,18 @@ class CashOutController extends Controller
         }
 
         $method = $data['account'] === 'kas_tunai' ? 'Kas Tunai' : 'Transfer Bank';
+        $paidAt = Carbon::parse($data['paid_at'], 'Asia/Jakarta')->timezone(config('app.timezone'));
 
-        DB::transaction(function () use ($transaction, $data, $method) {
+        DB::transaction(function () use ($transaction, $data, $method, $paidAt) {
             SupplierPayment::create([
                 'incoming_transaction_id' => $transaction->id,
-                'supplier_id'             => $transaction->supplier_id,
-                'paid_at'                 => $data['paid_at'],
-                'amount'                  => $data['amount'],
-                'payment_method'          => $method,
-                'account'                 => $data['account'],
-                'reference_no'            => $transaction->no_faktur,
-                'notes'                   => $data['notes'] ?: "Pembayaran faktur {$transaction->no_faktur}",
+                'supplier_id' => $transaction->supplier_id,
+                'paid_at' => $paidAt,
+                'amount' => $data['amount'],
+                'payment_method' => $method,
+                'account' => $data['account'],
+                'reference_no' => $transaction->no_faktur,
+                'notes' => $data['notes'] ?: "Pembayaran faktur {$transaction->no_faktur}",
             ]);
         });
 
@@ -183,14 +214,14 @@ class CashOutController extends Controller
     public function destroy(CashOut $cashOut)
     {
         if ($cashOut->is_auto) {
-            return back()->with('error', "Entri otomatis ({$cashOut->code}) terikat dengan transaksi supplier dan tidak dapat dihapus dari halaman ini.");
+            return back()->with('error', 'Entri otomatis terikat dengan transaksi supplier dan tidak dapat dihapus dari halaman ini.');
         }
 
-        $code = $cashOut->code;
+        $amountLabel = 'Rp ' . number_format((int) $cashOut->amount, 0, ',', '.');
         $cashOut->delete();
 
         return redirect()->route('cash-outs.index')
-            ->with('success', "Entri pengeluaran manual {$code} berhasil dihapus dan saldo rekening dikembalikan.");
+            ->with('success', "Entri pengeluaran manual senilai {$amountLabel} berhasil dihapus dan saldo rekening dikembalikan.");
     }
 
     /** Ekspor CSV mutasi kas keluar sesuai filter aktif */
@@ -206,8 +237,7 @@ class CashOutController extends Controller
             fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
             fputcsv($handle, [
-                'No. Kas Keluar',
-                'Waktu Pengeluaran',
+                'Tanggal & Waktu (WIB)',
                 'Sumber Jurnal',
                 'Kategori',
                 'Tujuan / Penerima',
@@ -219,9 +249,10 @@ class CashOutController extends Controller
 
             foreach ($rows as $co) {
                 $recipient = $co->source?->supplier?->name ?? 'Pengeluaran Operasional';
+                $paidWib = $co->paid_at?->copy()->timezone('Asia/Jakarta')->format('Y-m-d H:i') ?? '-';
+
                 fputcsv($handle, [
-                    $co->code,
-                    $co->paid_at?->format('Y-m-d H:i'),
+                    $paidWib,
                     $co->is_auto ? 'Otomatis' : 'Manual',
                     $co->category_label,
                     $recipient,
@@ -254,7 +285,7 @@ class CashOutController extends Controller
         }
 
         $acc = $request->input('account', 'all');
-        if (! array_key_exists($acc, CashIn::ACCOUNTS)) {
+        if (!array_key_exists($acc, CashIn::ACCOUNTS)) {
             $acc = 'all';
         }
         if ($acc !== 'all') {
@@ -262,27 +293,31 @@ class CashOutController extends Controller
         }
 
         $from = $request->input('from');
-        $to   = $request->input('to');
+        $to = $request->input('to');
         if ($from) {
-            $query->whereDate('paid_at', '>=', $from);
+            $fromStart = Carbon::parse($from, 'Asia/Jakarta')->startOfDay()->timezone(config('app.timezone'));
+            $query->where('paid_at', '>=', $fromStart);
         }
         if ($to) {
-            $query->whereDate('paid_at', '<=', $to);
+            $toEnd = Carbon::parse($to, 'Asia/Jakarta')->endOfDay()->timezone(config('app.timezone'));
+            $query->where('paid_at', '<=', $toEnd);
         }
 
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
-                $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('reference_no', 'like', "%{$search}%")
-                  ->orWhere('notes', 'like', "%{$search}%");
+                $q->where('reference_no', 'like', "%{$search}%")
+                    ->orWhere('notes', 'like', "%{$search}%")
+                    ->orWhereHas('source', function ($sq) use ($search) {
+                        $sq->whereHas('supplier', fn($sup) => $sup->where('name', 'like', "%{$search}%"));
+                    });
             });
         }
 
         $sort = $request->input('sort', 'latest');
         match ($sort) {
             'amount_desc' => $query->orderByDesc('amount'),
-            'amount_asc'  => $query->orderBy('amount'),
-            default       => $query->orderByDesc('paid_at')->orderByDesc('id'),
+            'amount_asc' => $query->orderBy('amount'),
+            default => $query->orderByDesc('paid_at')->orderByDesc('id'),
         };
 
         return [$query, $cat, $acc, $sort, $from, $to];
@@ -290,7 +325,7 @@ class CashOutController extends Controller
 
     private function accountBalance(string $key): float
     {
-        $in  = (float) CashIn::where('account', $key)->sum('amount');
+        $in = (float) CashIn::where('account', $key)->sum('amount');
         $out = (float) CashOut::where('account', $key)->sum('amount');
         return $in - $out;
     }
