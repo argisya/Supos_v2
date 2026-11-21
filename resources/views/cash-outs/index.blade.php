@@ -109,6 +109,7 @@
     $nowWibStr = $nowWib->format('Y-m-d');
     $past7WibStr = $nowWib->copy()->subDays(6)->format('Y-m-d');
     $month1WibStr = $nowWib->copy()->startOfMonth()->format('Y-m-d');
+    $defaultInputTab = $openTempo->isEmpty() ? 'ops' : 'supplier';
 @endphp
 
 @section('content')
@@ -149,7 +150,7 @@
                         <span class="material-symbols-outlined text-[18px] text-tertiary">download</span>
                         <span>Export Buku Kas (CSV)</span>
                     </a>
-                    <button type="button" onclick="openCashOutInputModal('supplier')"
+                    <button type="button" onclick="openCashOutInputModal('{{ $defaultInputTab }}')"
                         class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-space-xs shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all active:scale-95 whitespace-nowrap cursor-pointer">
                         <span class="material-symbols-outlined text-[20px]">add_circle</span>
                         <span>Catat Kas Keluar</span>
@@ -491,9 +492,9 @@
 
                 {{-- Preset Periode Cepat (WIB) --}}
                 @php
-                    $isTodayPreset = request('from') === $nowWibStr && request('to') === $nowWibStr;
-                    $is7DaysPreset = request('from') === $past7WibStr && request('to') === $nowWibStr;
-                    $isMonthPreset = request('from') === $month1WibStr && request('to') === $nowWibStr;
+                    $isTodayPreset = $from === $nowWibStr && $to === $nowWibStr;
+                    $is7DaysPreset = $from === $past7WibStr && $to === $nowWibStr;
+                    $isMonthPreset = $from === $month1WibStr && $to === $nowWibStr;
                 @endphp
                 <div class="flex items-center gap-space-xs flex-wrap">
                     <button type="button" onclick="setCashOutQuickDate('today')"
@@ -623,6 +624,10 @@
                                     $isAuto && filled($co->reference_no)
                                         ? route('incoming-goods.index', ['search' => $co->reference_no])
                                         : null;
+                                $incomingGoodLabel =
+                                    $co->category === 'kulakan_lunas'
+                                        ? 'Lihat Transaksi Kulakan'
+                                        : 'Lihat Faktur Tempo';
 
                                 $rowJson = [
                                     'paid_at' => $fullTimeLabel,
@@ -636,6 +641,7 @@
                                     'notes' => $co->notes ?: '-',
                                     'receipt_url' => $receiptUrl,
                                     'incoming_good_url' => $incomingGoodUrl,
+                                    'incoming_good_label' => $incomingGoodLabel,
                                 ];
                             @endphp
                             <tr class="hover:bg-surface-container/60 transition-colors group">
@@ -809,7 +815,7 @@
         <script>
             window.addEventListener('load', function() {
                 if (typeof openCashOutInputModal === 'function') {
-                    openCashOutInputModal(@json(old('active_tab', 'supplier')));
+                    openCashOutInputModal(@json(old('active_tab', $defaultInputTab)), true);
                 }
             });
         </script>

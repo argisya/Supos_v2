@@ -137,6 +137,7 @@
                                     class="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant font-mono font-bold text-sm">Rp</span>
                                 <input name="amount" id="payAmountInput" type="number" step="1" min="1"
                                     required
+                                    onkeydown="if(['e','E','+','-','.',','].includes(event.key)) event.preventDefault();"
                                     oninput="updateCoNominalPreview('payAmountInput', 'supNominalPreview'); validateSupplierBalance();"
                                     value="{{ old('amount', (int) $selectedTrx->remaining) }}"
                                     class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container font-mono text-headline-md text-on-surface font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -249,6 +250,7 @@
                                 class="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant font-mono font-bold text-sm">Rp</span>
                             <input name="amount" id="opsAmountInput" type="number" step="1" min="1"
                                 required
+                                onkeydown="if(['e','E','+','-','.',','].includes(event.key)) event.preventDefault();"
                                 oninput="updateCoNominalPreview('opsAmountInput', 'opsNominalPreview'); validateOperationalBalance();"
                                 value="{{ old('amount') }}" placeholder="0"
                                 class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container text-on-surface font-headline-md text-headline-md font-bold focus:outline-none focus:ring-1 focus:ring-primary font-mono" />
@@ -374,7 +376,7 @@
             <a id="coModalIncomingGoodLink" href="#"
                 class="hidden h-10 px-space-md rounded-xl bg-secondary/15 hover:bg-secondary/25 text-secondary font-headline-sm text-body-sm font-bold items-center gap-1.5 transition-colors">
                 <span class="material-symbols-outlined text-[18px]">inventory_2</span>
-                <span>Lihat Faktur Tempo</span>
+                <span id="coModalIncomingGoodLabel">Lihat Faktur Tempo</span>
             </a>
             <button type="button" onclick="closeCashOutDetail()"
                 class="h-10 px-space-md rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-headline-sm text-body-sm font-semibold cursor-pointer">Tutup</button>
@@ -607,14 +609,19 @@
                     if (f) f.submit();
                 }, 500);
             });
+            searchEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(filterTimer);
+                }
+            });
         }
 
-        window.openCashOutInputModal = function(tab) {
+        window.openCashOutInputModal = function(tab, preserveValidationBanner) {
             var modal = document.getElementById('cashOutInputModal');
             showModal(modal);
-            switchCashOutTab(tab || 'supplier', true);
+            switchCashOutTab(tab || @json($defaultInputTab), Boolean(preserveValidationBanner));
             setTimeout(function() {
-                if ((tab || 'supplier') === 'ops') {
+                if ((tab || @json($defaultInputTab)) === 'ops') {
                     var catEl = document.getElementById('opsCategorySelect');
                     if (catEl) catEl.focus();
                 } else {
@@ -730,9 +737,13 @@
             }
 
             var incomingLink = document.getElementById('coModalIncomingGoodLink');
+            var incomingLabel = document.getElementById('coModalIncomingGoodLabel');
             if (incomingLink) {
                 if (d.is_auto && d.incoming_good_url) {
                     incomingLink.href = d.incoming_good_url;
+                    if (incomingLabel) {
+                        incomingLabel.textContent = d.incoming_good_label || 'Lihat Faktur Tempo';
+                    }
                     incomingLink.classList.remove('hidden');
                     incomingLink.classList.add('inline-flex');
                 } else {
@@ -773,7 +784,7 @@
             }
         });
 
-        updateSupplierForm({{ old('amount') ? 'true' : 'false' }});
+        updateSupplierForm({{ old('amount') !== null ? 'true' : 'false' }});
         updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
         validateSupplierBalance();
         validateOperationalBalance();

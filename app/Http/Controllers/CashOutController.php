@@ -9,6 +9,7 @@ use App\Models\SupplierPayment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CashOutController extends Controller
 {
@@ -134,28 +135,33 @@ class CashOutController extends Controller
             'notes.required' => 'Keterangan pengeluaran wajib diisi.',
         ]);
 
-        if ($data['amount'] > $this->accountBalance($data['account'])) {
-            return back()->withErrors([
-                'amount' => 'Saldo ' . CashIn::ACCOUNTS[$data['account']]['label'] . ' tidak mencukupi (tersedia: Rp ' . number_format($this->accountBalance($data['account']), 0, ',', '.') . ').',
-            ])->withInput(['active_tab' => 'ops'] + $request->all());
-        }
-
         $paidAt = filled($data['paid_at'])
             ? Carbon::parse($data['paid_at'], 'Asia/Jakarta')->timezone(config('app.timezone'))
             : now();
 
-        DB::transaction(function () use ($data, $paidAt) {
-            CashOut::create([
-                'code' => CashOut::generateCode(false, true),
-                'category' => $data['category'],
-                'account' => $data['account'],
-                'amount' => $data['amount'],
-                'paid_at' => $paidAt,
-                'source_type' => null,
-                'source_id' => null,
-                'notes' => $data['notes'],
-            ]);
-        });
+        try {
+            DB::transaction(function () use ($data, $paidAt) {
+                $availableBalance = $this->accountBalance($data['account'], true);
+                if ($data['amount'] > $availableBalance) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Saldo ' . CashIn::ACCOUNTS[$data['account']]['label'] . ' tidak mencukupi (tersedia: Rp ' . number_format(max(0, $availableBalance), 0, ',', '.') . ').',
+                    ]);
+                }
+
+                CashOut::create([
+                    'code' => CashOut::generateCode(false, true),
+                    'category' => $data['category'],
+                    'account' => $data['account'],
+                    'amount' => $data['amount'],
+                    'paid_at' => $paidAt,
+                    'source_type' => null,
+                    'source_id' => null,
+                    'notes' => $data['notes'],
+                ]);
+            });
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput(['active_tab' => 'ops'] + $request->all());
+        }
 
         return redirect()->route('cash-outs.index')
             ->with('success', 'Pengeluaran Rp ' . number_format($data['amount'], 0, ',', '.') . ' berhasil dicatat.');
@@ -175,38 +181,47 @@ class CashOutController extends Controller
             'paid_at.required' => 'Tanggal pembayaran wajib diisi.',
         ]);
 
-        if ($transaction->payment_status === 'lunas' || $transaction->remaining <= 0) {
-            return back()->withErrors(['amount' => 'Faktur ini sudah berstatus LUNAS.'])
-                ->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());
-        }
-
-        if ($data['amount'] > $transaction->remaining + 0.01) {
-            return back()->withErrors([
-                'amount' => 'Jumlah melebihi sisa hutang (Rp ' . number_format($transaction->remaining, 0, ',', '.') . ').',
-            ])->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());
-        }
-
-        if ($data['amount'] > $this->accountBalance($data['account'])) {
-            return back()->withErrors([
-                'amount' => 'Saldo ' . CashIn::ACCOUNTS[$data['account']]['label'] . ' tidak mencukupi (tersedia: Rp ' . number_format($this->accountBalance($data['account']), 0, ',', '.') . ').',
-            ])->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());
-        }
-
         $method = $data['account'] === 'kas_tunai' ? 'Kas Tunai' : 'Transfer Bank';
         $paidAt = Carbon::parse($data['paid_at'], 'Asia/Jakarta')->timezone(config('app.timezone'));
 
-        DB::transaction(function () use ($transaction, $data, $method, $paidAt) {
-            SupplierPayment::create([
-                'incoming_transaction_id' => $transaction->id,
-                'supplier_id' => $transaction->supplier_id,
-                'paid_at' => $paidAt,
-                'amount' => $data['amount'],
-                'payment_method' => $method,
-                'account' => $data['account'],
-                'reference_no' => $transaction->no_faktur,
-                'notes' => $data['notes'] ?: "Pembayaran faktur {$transaction->no_faktur}",
-            ]);
-        });
+        try {
+            DB::transaction(function () use ($transaction, $data, $method, $paidAt) {
+                $lockedTrx = IncomingTransaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+
+                if ($lockedTrx->payment_status === 'lunas' || $lockedTrx->remaining <= 0) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Faktur ini sudah berstatus LUNAS.',
+                    ]);
+                }
+
+                if ($data['amount'] > $lockedTrx->remaining + 0.01) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Jumlah melebihi sisa hutang (Rp ' . number_format($lockedTrx->remaining, 0, ',', '.') . ').',
+                    ]);
+                }
+
+                $availableBalance = $this->accountBalance($data['account'], true);
+                if ($data['amount'] > $availableBalance) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Saldo ' . CashIn::ACCOUNTS[$data['account']]['label'] . ' tidak mencukupi (tersedia: Rp ' . number_format(max(0, $availableBalance), 0, ',', '.') . ').',
+                    ]);
+                }
+
+                SupplierPayment::create([
+                    'incoming_transaction_id' => $lockedTrx->id,
+                    'supplier_id' => $lockedTrx->supplier_id,
+                    'paid_at' => $paidAt,
+                    'amount' => $data['amount'],
+                    'payment_method' => $method,
+                    'account' => $data['account'],
+                    'reference_no' => $lockedTrx->no_faktur,
+                    'notes' => $data['notes'] ?: "Pembayaran faktur {$lockedTrx->no_faktur}",
+                ]);
+            });
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())
+                ->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());
+        }
 
         return redirect()->route('cash-outs.index')
             ->with('success', 'Pembayaran Rp ' . number_format($data['amount'], 0, ',', '.') . ' untuk faktur ' . $transaction->no_faktur . ' berhasil diposting.');
@@ -341,10 +356,18 @@ class CashOutController extends Controller
         return [$query, $cat, $acc, $sort, $from, $to];
     }
 
-    private function accountBalance(string $key): float
+    private function accountBalance(string $key, bool $forUpdate = false): float
     {
-        $in = (float) CashIn::where('account', $key)->sum('amount');
-        $out = (float) CashOut::where('account', $key)->sum('amount');
+        $inQuery = CashIn::where('account', $key);
+        $outQuery = CashOut::where('account', $key);
+
+        if ($forUpdate) {
+            $inQuery->lockForUpdate();
+            $outQuery->lockForUpdate();
+        }
+
+        $in = (float) $inQuery->sum('amount');
+        $out = (float) $outQuery->sum('amount');
         return $in - $out;
     }
 }
