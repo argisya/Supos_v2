@@ -203,7 +203,9 @@
                         <div class="flex flex-col min-w-0">
                             <span
                                 class="font-headline-sm text-body-md font-bold text-on-surface truncate">{{ $meta['label'] }}</span>
-                            <span class="font-label-sm text-label-sm text-on-surface-variant">Saldo Tersedia Realtime</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">
+                                {{ $isSelected ? 'Klik lagi untuk tampilkan semua' : 'Klik untuk filter mutasi akun' }}
+                            </span>
                         </div>
                     </div>
                     <div class="flex flex-col items-end shrink-0">

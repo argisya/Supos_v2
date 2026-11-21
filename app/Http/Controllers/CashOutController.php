@@ -7,6 +7,7 @@ use App\Models\CashOut;
 use App\Models\IncomingTransaction;
 use App\Models\SupplierPayment;
 use Carbon\Carbon;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -78,12 +79,19 @@ class CashOutController extends Controller
         [$query, $cat, $acc, $sort, $from, $to] = $this->buildFilteredQuery($request);
         $cashOuts = $query->paginate(10)->withQueryString();
 
-        // ============ TAB COUNTS ============
+        // ============ TAB COUNTS (SINGLE QUERY OPTIMIZED) ============
+        $countsRow = CashOut::selectRaw("
+            COUNT(*) as total_all,
+            SUM(CASE WHEN category IN ('kulakan_lunas', 'pelunasan_hutang_supplier') THEN 1 ELSE 0 END) as total_supplier,
+            SUM(CASE WHEN category NOT IN ('kulakan_lunas', 'pelunasan_hutang_supplier') THEN 1 ELSE 0 END) as total_operasional,
+            SUM(CASE WHEN source_id IS NULL THEN 1 ELSE 0 END) as total_manual
+        ")->first();
+
         $tabCounts = [
-            'all' => CashOut::count(),
-            'supplier' => CashOut::whereIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])->count(),
-            'operasional' => CashOut::whereNotIn('category', ['kulakan_lunas', 'pelunasan_hutang_supplier'])->count(),
-            'manual' => CashOut::whereNull('source_id')->count(),
+            'all' => (int) ($countsRow->total_all ?? 0),
+            'supplier' => (int) ($countsRow->total_supplier ?? 0),
+            'operasional' => (int) ($countsRow->total_operasional ?? 0),
+            'manual' => (int) ($countsRow->total_manual ?? 0),
         ];
 
         $hasActiveFilter = $cat !== 'all' || $acc !== 'all' || filled($request->search) || filled($from) || filled($to);
@@ -162,6 +170,10 @@ class CashOutController extends Controller
                     ]);
                 });
             });
+        } catch (LockTimeoutException $e) {
+            return back()
+                ->with('error', 'Sistem sedang memproses transaksi lain pada rekening ini. Silakan coba beberapa detik lagi.')
+                ->withInput(['active_tab' => 'ops'] + $request->all());
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput(['active_tab' => 'ops'] + $request->all());
         }
@@ -223,6 +235,10 @@ class CashOutController extends Controller
                     ]);
                 });
             });
+        } catch (LockTimeoutException $e) {
+            return back()
+                ->with('error', 'Sistem sedang memproses transaksi lain pada rekening ini. Silakan coba beberapa detik lagi.')
+                ->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())
                 ->withInput(['active_tab' => 'supplier', 'selected_trx_id' => $transaction->id] + $request->all());

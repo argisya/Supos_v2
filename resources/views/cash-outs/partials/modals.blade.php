@@ -26,9 +26,19 @@
         @php
             $firstAvailableAccount = collect($acctStyles)->keys()->first(fn($k) => ($balances[$k] ?? 0) > 0) ?? 'bca';
             $defaultAccount = old('account', $firstAvailableAccount);
+            $allAccountsEmpty = collect($acctStyles)->keys()->every(fn($k) => ($balances[$k] ?? 0) <= 0);
         @endphp
 
         <div class="p-space-lg overflow-y-auto">
+            @if ($allAccountsEmpty)
+                <div
+                    class="mb-space-md p-space-sm rounded-xl bg-error/15 border border-error/30 text-error font-body-sm text-body-sm flex items-center gap-space-xs">
+                    <span class="material-symbols-outlined text-[20px] shrink-0">account_balance_wallet</span>
+                    <span>Semua rekening saat ini bersaldo <strong>Rp 0</strong>. Catat <strong>Kas Masuk</strong>
+                        terlebih dahulu sebelum melakukan pengeluaran.</span>
+                </div>
+            @endif
+
             {{-- Tab Switcher --}}
             <div class="flex items-center p-1 rounded-xl bg-surface-container mb-space-md">
                 <button type="button" onclick="switchCashOutTab('supplier')" id="tabSupplierBtn"
@@ -160,7 +170,7 @@
                                 <label
                                     class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Catatan
                                     / Referensi</label>
-                                <input name="notes" type="text"
+                                <input name="notes" id="supNotesInput" type="text"
                                     value="{{ old('active_tab') === 'supplier' ? old('notes') : '' }}"
                                     placeholder="Contoh: Termin 1 PO-9921"
                                     class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -282,7 +292,7 @@
                             <label
                                 class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Keterangan
                                 Pengeluaran <span class="text-error">*</span></label>
-                            <input name="notes" type="text" required
+                            <input name="notes" id="opsNotesInput" type="text" required
                                 value="{{ old('active_tab') === 'ops' ? old('notes') : '' }}"
                                 placeholder="Contoh: Tagihan listrik &amp; cold storage"
                                 class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
@@ -423,6 +433,7 @@
 <script>
     (function() {
         var filterTimer = null;
+        var defaultAccountKey = @json($firstAvailableAccount);
 
         function showModal(el) {
             if (!el) return;
@@ -459,6 +470,27 @@
         function clearValidationArtifacts() {
             var banner = document.getElementById('coValidationBanner');
             if (banner) banner.remove();
+        }
+
+        function resetAccountRadios(formEl, cardSelector) {
+            if (!formEl) return;
+            var targetRadio = formEl.querySelector('input[name="account"][value="' + defaultAccountKey + '"]') ||
+                formEl.querySelector('input[name="account"]');
+            if (targetRadio) {
+                targetRadio.checked = true;
+                selectCashOutAccount(targetRadio, cardSelector);
+            }
+        }
+
+        function getCurrentWibDateTimeLocal() {
+            var nowWib = new Date(new Date().toLocaleString('en-US', {
+                timeZone: 'Asia/Jakarta'
+            }));
+            var pad = function(n) {
+                return String(n).padStart(2, '0');
+            };
+            return nowWib.getFullYear() + '-' + pad(nowWib.getMonth() + 1) + '-' + pad(nowWib.getDate()) +
+                'T' + pad(nowWib.getHours()) + ':' + pad(nowWib.getMinutes());
         }
 
         window.validateSupplierBalance = function() {
@@ -657,6 +689,14 @@
                     if (selEl) selEl.focus();
                 }
             }, 50);
+
+            if (!preserveValidationBanner) {
+                var freshWib = getCurrentWibDateTimeLocal();
+                var supPaidEl = document.getElementById('supPaidAtInput');
+                var opsPaidEl = document.getElementById('opsPaidAtInput');
+                if (supPaidEl) supPaidEl.value = freshWib;
+                if (opsPaidEl) opsPaidEl.value = freshWib;
+            }
         };
 
         window.closeCashOutInputModal = function() {
@@ -674,13 +714,23 @@
 
             var opsForm = document.getElementById('opsExpenseForm');
             if (opsForm) {
-                opsForm.reset();
+                var opsCat = document.getElementById('opsCategorySelect');
+                var opsAmt = document.getElementById('opsAmountInput');
+                var opsNotes = document.getElementById('opsNotesInput');
+                if (opsCat) opsCat.value = '';
+                if (opsAmt) opsAmt.value = '';
+                if (opsNotes) opsNotes.value = '';
+                resetAccountRadios(opsForm, '.co-ops-account-card');
                 updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
             }
 
             var supForm = document.getElementById('paySupplierForm');
             if (supForm) {
-                supForm.reset();
+                var supSel = document.getElementById('openTempoSelect');
+                var supNotes = document.getElementById('supNotesInput');
+                if (supSel && supSel.options.length > 0) supSel.selectedIndex = 0;
+                if (supNotes) supNotes.value = '';
+                resetAccountRadios(supForm, '.co-sup-account-card');
                 updateSupplierForm(false);
             }
 
