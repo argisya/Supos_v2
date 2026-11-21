@@ -139,7 +139,7 @@
                                     required
                                     onkeydown="if(['e','E','+','-','.',','].includes(event.key)) event.preventDefault();"
                                     oninput="updateCoNominalPreview('payAmountInput', 'supNominalPreview'); validateSupplierBalance();"
-                                    value="{{ old('amount', (int) $selectedTrx->remaining) }}"
+                                    value="{{ old('active_tab') === 'supplier' ? old('amount', (int) $selectedTrx->remaining) : (int) $selectedTrx->remaining }}"
                                     class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container font-mono text-headline-md text-on-surface font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                             </div>
                             <p id="supBalanceWarning"
@@ -153,14 +153,15 @@
                                     class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Tanggal
                                     &amp; Waktu (WIB) <span class="text-error">*</span></label>
                                 <input name="paid_at" id="supPaidAtInput" type="datetime-local" required
-                                    value="{{ old('paid_at', now('Asia/Jakarta')->format('Y-m-d\TH:i')) }}"
+                                    value="{{ old('active_tab') === 'supplier' ? old('paid_at', now('Asia/Jakarta')->format('Y-m-d\TH:i')) : now('Asia/Jakarta')->format('Y-m-d\TH:i') }}"
                                     class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                             </div>
                             <div class="flex flex-col gap-1.5">
                                 <label
                                     class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Catatan
                                     / Referensi</label>
-                                <input name="notes" type="text" value="{{ old('notes') }}"
+                                <input name="notes" type="text"
+                                    value="{{ old('active_tab') === 'supplier' ? old('notes') : '' }}"
                                     placeholder="Contoh: Termin 1 PO-9921"
                                     class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                             </div>
@@ -197,14 +198,14 @@
                         <select name="category" id="opsCategorySelect" required
                             class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary">
                             <option value="">— Pilih Kategori —</option>
-                            <option value="biaya_operasional" @selected(old('category') === 'biaya_operasional')>Biaya Operasional Umum
+                            <option value="biaya_operasional" @selected(old('active_tab') === 'ops' && old('category') === 'biaya_operasional')>Biaya Operasional Umum
                             </option>
-                            <option value="biaya_listrik" @selected(old('category') === 'biaya_listrik')>Listrik &amp; Utilitas</option>
-                            <option value="gaji_staff" @selected(old('category') === 'gaji_staff')>Gaji &amp; Kasbon Staff</option>
-                            <option value="logistik_armada" @selected(old('category') === 'logistik_armada')>Logistik &amp; Armada</option>
-                            <option value="bensin_distribusi" @selected(old('category') === 'bensin_distribusi')>Bensin &amp; Tol Distribusi
+                            <option value="biaya_listrik" @selected(old('active_tab') === 'ops' && old('category') === 'biaya_listrik')>Listrik &amp; Utilitas</option>
+                            <option value="gaji_staff" @selected(old('active_tab') === 'ops' && old('category') === 'gaji_staff')>Gaji &amp; Kasbon Staff</option>
+                            <option value="logistik_armada" @selected(old('active_tab') === 'ops' && old('category') === 'logistik_armada')>Logistik &amp; Armada</option>
+                            <option value="bensin_distribusi" @selected(old('active_tab') === 'ops' && old('category') === 'bensin_distribusi')>Bensin &amp; Tol Distribusi
                             </option>
-                            <option value="lain_lain" @selected(old('category') === 'lain_lain')>Pengeluaran Lain-lain</option>
+                            <option value="lain_lain" @selected(old('active_tab') === 'ops' && old('category') === 'lain_lain')>Pengeluaran Lain-lain</option>
                         </select>
                     </div>
 
@@ -252,7 +253,7 @@
                                 required
                                 onkeydown="if(['e','E','+','-','.',','].includes(event.key)) event.preventDefault();"
                                 oninput="updateCoNominalPreview('opsAmountInput', 'opsNominalPreview'); validateOperationalBalance();"
-                                value="{{ old('amount') }}" placeholder="0"
+                                value="{{ old('active_tab') === 'ops' ? old('amount') : '' }}" placeholder="0"
                                 class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container text-on-surface font-headline-md text-headline-md font-bold focus:outline-none focus:ring-1 focus:ring-primary font-mono" />
                         </div>
                         <p id="opsBalanceWarning"
@@ -274,14 +275,15 @@
                                 class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Tanggal
                                 &amp; Waktu (WIB) <span class="text-error">*</span></label>
                             <input name="paid_at" id="opsPaidAtInput" type="datetime-local" required
-                                value="{{ old('paid_at', now('Asia/Jakarta')->format('Y-m-d\TH:i')) }}"
+                                value="{{ old('active_tab') === 'ops' ? old('paid_at', now('Asia/Jakarta')->format('Y-m-d\TH:i')) : now('Asia/Jakarta')->format('Y-m-d\TH:i') }}"
                                 class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label
                                 class="font-label-sm text-label-sm text-on-surface uppercase tracking-wider font-bold">Keterangan
                                 Pengeluaran <span class="text-error">*</span></label>
-                            <input name="notes" type="text" required value="{{ old('notes') }}"
+                            <input name="notes" type="text" required
+                                value="{{ old('active_tab') === 'ops' ? old('notes') : '' }}"
                                 placeholder="Contoh: Tagihan listrik &amp; cold storage"
                                 class="w-full h-10 px-space-md rounded-xl bg-surface-container text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                         </div>
@@ -572,6 +574,25 @@
             }
         };
 
+        window.prepareCashOutDateRange = function() {
+            var fromEl = document.getElementById('coDateFrom');
+            var toEl = document.getElementById('coDateTo');
+            if (!fromEl || !toEl) return;
+
+            if (fromEl.value && toEl.value && fromEl.value > toEl.value) {
+                var tmp = fromEl.value;
+                fromEl.value = toEl.value;
+                toEl.value = tmp;
+            }
+        };
+
+        window.submitCashOutDateFilter = function() {
+            var form = document.getElementById('coFilterForm');
+            if (!form) return;
+            prepareCashOutDateRange();
+            form.submit();
+        };
+
         window.setCashOutQuickDate = function(mode) {
             var nowWib = new Date(new Date().toLocaleString('en-US', {
                 timeZone: 'Asia/Jakarta'
@@ -616,12 +637,19 @@
             });
         }
 
-        window.openCashOutInputModal = function(tab, preserveValidationBanner) {
+        window.openCashOutInputModal = function(tab, preserveValidationBanner, presetCategory) {
             var modal = document.getElementById('cashOutInputModal');
+            var targetTab = tab || @json($defaultInputTab);
             showModal(modal);
-            switchCashOutTab(tab || @json($defaultInputTab), Boolean(preserveValidationBanner));
+            switchCashOutTab(targetTab, Boolean(preserveValidationBanner));
+
+            if (targetTab === 'ops' && presetCategory) {
+                var catEl = document.getElementById('opsCategorySelect');
+                if (catEl) catEl.value = presetCategory;
+            }
+
             setTimeout(function() {
-                if ((tab || @json($defaultInputTab)) === 'ops') {
+                if (targetTab === 'ops') {
                     var catEl = document.getElementById('opsCategorySelect');
                     if (catEl) catEl.focus();
                 } else {
@@ -643,6 +671,19 @@
                 opsWarn.textContent = '';
                 opsWarn.classList.add('hidden');
             }
+
+            var opsForm = document.getElementById('opsExpenseForm');
+            if (opsForm) {
+                opsForm.reset();
+                updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
+            }
+
+            var supForm = document.getElementById('paySupplierForm');
+            if (supForm) {
+                supForm.reset();
+                updateSupplierForm(false);
+            }
+
             hideModal(document.getElementById('cashOutInputModal'));
         };
 
@@ -784,7 +825,7 @@
             }
         });
 
-        updateSupplierForm({{ old('amount') !== null ? 'true' : 'false' }});
+        updateSupplierForm({{ old('active_tab') === 'supplier' && old('amount') !== null ? 'true' : 'false' }});
         updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
         validateSupplierBalance();
         validateOperationalBalance();

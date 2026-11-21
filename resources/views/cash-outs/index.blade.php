@@ -421,18 +421,19 @@
                             $lastWib = $last?->paid_at?->copy()->timezone('Asia/Jakarta');
                             $meta = $catStyles[$rc] ?? ['label' => ucfirst($rc)];
                         @endphp
-                        <div
-                            class="p-space-xs px-space-sm rounded-xl bg-surface-container flex items-center justify-between">
+                        <button type="button" onclick="openCashOutInputModal('ops', false, '{{ $rc }}')"
+                            title="Klik untuk mencatat {{ $meta['label'] }}"
+                            class="w-full text-left p-space-xs px-space-sm rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-between cursor-pointer group">
                             <div class="flex items-center gap-space-sm min-w-0">
                                 <div
-                                    class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary shrink-0">
+                                    class="w-8 h-8 rounded-lg bg-surface-container-high group-hover:bg-primary/15 flex items-center justify-center text-tertiary group-hover:text-primary shrink-0 transition-colors">
                                     <span class="material-symbols-outlined text-[18px]">
                                         {{ $rc === 'biaya_listrik' ? 'bolt' : ($rc === 'logistik_armada' ? 'local_shipping' : 'local_gas_station') }}
                                     </span>
                                 </div>
                                 <div class="flex flex-col min-w-0">
                                     <span
-                                        class="font-headline-sm text-body-sm text-on-surface font-semibold truncate">{{ $meta['label'] }}</span>
+                                        class="font-headline-sm text-body-sm text-on-surface font-semibold truncate group-hover:text-primary transition-colors">{{ $meta['label'] }}</span>
                                     <span class="font-label-sm text-label-sm text-on-surface-variant">
                                         {{ $lastWib ? 'Terakhir: ' . $lastWib->translatedFormat('d M Y') : 'Belum pernah dicatat' }}
                                     </span>
@@ -440,7 +441,7 @@
                             </div>
                             <span
                                 class="font-mono text-body-sm text-on-surface font-bold shrink-0">{{ $last ? $fmt($last->amount) : '—' }}</span>
-                        </div>
+                        </button>
                     @endforeach
                 </div>
             </div>
@@ -520,6 +521,7 @@
             </div>
 
             <form method="GET" action="{{ route('cash-outs.index') }}" id="coFilterForm"
+                onsubmit="prepareCashOutDateRange()"
                 class="flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-low p-space-sm rounded-xl shadow-sm">
                 <input type="hidden" name="category" id="coCategoryInput" value="{{ $cat }}">
 
@@ -546,12 +548,12 @@
                         <span class="material-symbols-outlined text-[18px] text-primary">date_range</span>
                         <span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Dari</span>
                         <input type="date" name="from" id="coDateFrom" value="{{ $from }}"
-                            onchange="this.form.submit()"
+                            onchange="submitCashOutDateFilter()"
                             class="bg-transparent text-on-surface font-body-sm text-body-sm focus:outline-none" />
                         <span
                             class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold pl-1">s/d</span>
                         <input type="date" name="to" id="coDateTo" value="{{ $to }}"
-                            onchange="this.form.submit()"
+                            onchange="submitCashOutDateFilter()"
                             class="bg-transparent text-on-surface font-body-sm text-body-sm focus:outline-none" />
                     </div>
 
