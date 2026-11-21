@@ -56,7 +56,7 @@
                     @endphp
                     <form method="POST" id="paySupplierForm"
                         action="{{ route('cash-outs.pay-supplier', $selectedTrx) }}"
-                        onsubmit="const btn = this.querySelector('button[type=submit]'); btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed');"
+                        onsubmit="if(!validateSupplierBalance()){ event.preventDefault(); return false; } const btn = document.getElementById('supSubmitBtn'); if(btn){ btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }"
                         class="flex flex-col space-y-space-md">
                         @csrf
                         <input type="hidden" name="active_tab" value="supplier">
@@ -94,14 +94,15 @@
                             <div class="grid grid-cols-3 gap-space-xs">
                                 @foreach ($acctStyles as $key => $meta)
                                     @php
-                                        $accBal = $balances[$key] ?? 0;
+                                        $accBal = (float) ($balances[$key] ?? 0);
                                         $isChecked = $defaultAccount === $key;
                                     @endphp
                                     <label
                                         class="co-sup-account-card flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high cursor-pointer transition-all border {{ $isChecked ? 'border-primary bg-primary-container/10' : 'border-transparent' }} {{ $accBal <= 0 ? 'opacity-60' : '' }}">
-                                        <input type="radio" name="account" value="{{ $key }}" class="hidden"
+                                        <input type="radio" name="account" value="{{ $key }}"
+                                            data-balance="{{ (int) $accBal }}" class="hidden"
                                             @checked($isChecked)
-                                            onchange="selectCashOutAccount(this, '.co-sup-account-card')" />
+                                            onchange="selectCashOutAccount(this, '.co-sup-account-card'); validateSupplierBalance();" />
                                         <span
                                             class="font-headline-sm text-body-sm font-bold text-on-surface">{{ $meta['short'] }}</span>
                                         <span
@@ -134,11 +135,15 @@
                             <div class="relative">
                                 <span
                                     class="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant font-mono font-bold text-sm">Rp</span>
-                                <input name="amount" id="payAmountInput" type="number" min="1" required
-                                    oninput="updateCoNominalPreview('payAmountInput', 'supNominalPreview')"
+                                <input name="amount" id="payAmountInput" type="number" step="1" min="1"
+                                    required
+                                    oninput="updateCoNominalPreview('payAmountInput', 'supNominalPreview'); validateSupplierBalance();"
                                     value="{{ old('amount', (int) $selectedTrx->remaining) }}"
                                     class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container font-mono text-headline-md text-on-surface font-bold focus:outline-none focus:ring-1 focus:ring-primary" />
                             </div>
+                            <p id="supBalanceWarning"
+                                class="hidden font-label-sm text-label-sm text-error font-semibold flex items-center gap-1 mt-0.5">
+                            </p>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
@@ -166,8 +171,8 @@
                                 class="h-10 px-space-md rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-headline-sm text-body-sm font-semibold cursor-pointer">
                                 Batal
                             </button>
-                            <button type="submit"
-                                class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer">
+                            <button type="submit" id="supSubmitBtn"
+                                class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer">
                                 <span class="material-symbols-outlined text-[18px]">check_circle</span>
                                 <span>Simpan &amp; Posting</span>
                             </button>
@@ -179,7 +184,7 @@
             {{-- TAB 2: BIAYA OPERASIONAL --}}
             <div id="tabOpsForm" class="hidden">
                 <form method="POST" id="opsExpenseForm" action="{{ route('cash-outs.store') }}"
-                    onsubmit="const btn = this.querySelector('button[type=submit]'); btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed');"
+                    onsubmit="if(!validateOperationalBalance()){ event.preventDefault(); return false; } const btn = document.getElementById('opsSubmitBtn'); if(btn){ btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }"
                     class="flex flex-col space-y-space-md">
                     @csrf
                     <input type="hidden" name="active_tab" value="ops">
@@ -209,14 +214,15 @@
                         <div class="grid grid-cols-3 gap-space-xs">
                             @foreach ($acctStyles as $key => $meta)
                                 @php
-                                    $accBal = $balances[$key] ?? 0;
+                                    $accBal = (float) ($balances[$key] ?? 0);
                                     $isChecked = $defaultAccount === $key;
                                 @endphp
                                 <label
                                     class="co-ops-account-card flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high cursor-pointer transition-all border {{ $isChecked ? 'border-primary bg-primary-container/10' : 'border-transparent' }} {{ $accBal <= 0 ? 'opacity-60' : '' }}">
-                                    <input type="radio" name="account" value="{{ $key }}" class="hidden"
+                                    <input type="radio" name="account" value="{{ $key }}"
+                                        data-balance="{{ (int) $accBal }}" class="hidden"
                                         @checked($isChecked)
-                                        onchange="selectCashOutAccount(this, '.co-ops-account-card')" />
+                                        onchange="selectCashOutAccount(this, '.co-ops-account-card'); validateOperationalBalance();" />
                                     <span
                                         class="font-headline-sm text-body-sm font-bold text-on-surface">{{ $meta['short'] }}</span>
                                     <span
@@ -241,11 +247,15 @@
                         <div class="relative">
                             <span
                                 class="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant font-mono font-bold text-sm">Rp</span>
-                            <input name="amount" id="opsAmountInput" type="number" min="1" required
-                                oninput="updateCoNominalPreview('opsAmountInput', 'opsNominalPreview')"
+                            <input name="amount" id="opsAmountInput" type="number" step="1" min="1"
+                                required
+                                oninput="updateCoNominalPreview('opsAmountInput', 'opsNominalPreview'); validateOperationalBalance();"
                                 value="{{ old('amount') }}" placeholder="0"
                                 class="w-full h-11 pl-11 pr-space-md rounded-xl bg-surface-container text-on-surface font-headline-md text-headline-md font-bold focus:outline-none focus:ring-1 focus:ring-primary font-mono" />
                         </div>
+                        <p id="opsBalanceWarning"
+                            class="hidden font-label-sm text-label-sm text-error font-semibold flex items-center gap-1 mt-0.5">
+                        </p>
                         <div class="flex flex-wrap items-center gap-space-xs pt-1">
                             @foreach ([100000, 250000, 500000, 1000000, 5000000] as $v)
                                 <button type="button" onclick="setOpsNominal({{ $v }})"
@@ -281,8 +291,8 @@
                             class="h-10 px-space-md rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-headline-sm text-body-sm font-semibold cursor-pointer">
                             Batal
                         </button>
-                        <button type="submit"
-                            class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer">
+                        <button type="submit" id="opsSubmitBtn"
+                            class="h-10 px-space-lg rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-headline-sm text-body-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer">
                             <span class="material-symbols-outlined text-[18px]">check_circle</span>
                             <span>Simpan &amp; Posting</span>
                         </button>
@@ -360,7 +370,12 @@
         </div>
 
         <div
-            class="p-space-md bg-surface-container flex items-center justify-end gap-space-sm border-t border-surface-container-highest/30">
+            class="p-space-md bg-surface-container flex items-center justify-end gap-space-sm flex-wrap border-t border-surface-container-highest/30">
+            <a id="coModalIncomingGoodLink" href="#"
+                class="hidden h-10 px-space-md rounded-xl bg-secondary/15 hover:bg-secondary/25 text-secondary font-headline-sm text-body-sm font-bold items-center gap-1.5 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+                <span>Lihat Faktur Tempo</span>
+            </a>
             <button type="button" onclick="closeCashOutDetail()"
                 class="h-10 px-space-md rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface font-headline-sm text-body-sm font-semibold cursor-pointer">Tutup</button>
             <a id="coModalReceiptLink" href="#" target="_blank"
@@ -419,12 +434,111 @@
             el.setAttribute('aria-hidden', 'true');
         }
 
+        function fmtRp(n) {
+            return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+        }
+
+        function getCheckedAccountBalance(formEl) {
+            if (!formEl) return 0;
+            var checked = formEl.querySelector('input[name="account"]:checked');
+            if (!checked) return 0;
+            return parseFloat(checked.getAttribute('data-balance') || '0') || 0;
+        }
+
+        function setSubmitBtnDisabled(btn, disabled) {
+            if (!btn) return;
+            btn.disabled = disabled;
+            btn.classList.toggle('opacity-50', disabled);
+            btn.classList.toggle('cursor-not-allowed', disabled);
+        }
+
+        function clearValidationArtifacts() {
+            var banner = document.getElementById('coValidationBanner');
+            if (banner) banner.remove();
+        }
+
+        window.validateSupplierBalance = function() {
+            var formEl = document.getElementById('paySupplierForm');
+            var amountEl = document.getElementById('payAmountInput');
+            var warnEl = document.getElementById('supBalanceWarning');
+            var submitEl = document.getElementById('supSubmitBtn');
+            var selEl = document.getElementById('openTempoSelect');
+
+            if (!formEl) return false;
+
+            var balance = getCheckedAccountBalance(formEl);
+            var amount = parseFloat(amountEl ? amountEl.value : '0') || 0;
+            var remaining = 0;
+            if (selEl && selEl.selectedIndex >= 0) {
+                remaining = parseFloat(selEl.options[selEl.selectedIndex].dataset.remaining || '0') || 0;
+            }
+
+            var errorMsg = '';
+            if (balance <= 0) {
+                errorMsg = 'Saldo rekening terpilih Rp 0. Silakan pilih rekening lain yang memiliki saldo.';
+            } else if (amount > balance) {
+                errorMsg = 'Nominal pembayaran (' + fmtRp(amount) + ') melebihi saldo rekening (' + fmtRp(
+                    balance) + ').';
+            } else if (remaining > 0 && amount > remaining) {
+                errorMsg = 'Nominal pembayaran melebihi sisa tagihan faktur (' + fmtRp(remaining) + ').';
+            }
+
+            if (warnEl) {
+                if (errorMsg) {
+                    warnEl.textContent = errorMsg;
+                    warnEl.classList.remove('hidden');
+                } else {
+                    warnEl.textContent = '';
+                    warnEl.classList.add('hidden');
+                }
+            }
+
+            var isInvalid = balance <= 0 || amount <= 0 || amount > balance || (remaining > 0 && amount >
+                remaining);
+            setSubmitBtnDisabled(submitEl, isInvalid);
+            return !isInvalid;
+        };
+
+        window.validateOperationalBalance = function() {
+            var formEl = document.getElementById('opsExpenseForm');
+            var amountEl = document.getElementById('opsAmountInput');
+            var warnEl = document.getElementById('opsBalanceWarning');
+            var submitEl = document.getElementById('opsSubmitBtn');
+
+            if (!formEl) return false;
+
+            var balance = getCheckedAccountBalance(formEl);
+            var amount = parseFloat(amountEl ? amountEl.value : '0') || 0;
+
+            var errorMsg = '';
+            if (balance <= 0) {
+                errorMsg = 'Saldo rekening terpilih Rp 0. Silakan pilih rekening lain yang memiliki saldo.';
+            } else if (amount > balance) {
+                errorMsg = 'Nominal pengeluaran (' + fmtRp(amount) + ') melebihi saldo rekening (' + fmtRp(
+                    balance) + ').';
+            }
+
+            if (warnEl) {
+                if (errorMsg) {
+                    warnEl.textContent = errorMsg;
+                    warnEl.classList.remove('hidden');
+                } else {
+                    warnEl.textContent = '';
+                    warnEl.classList.add('hidden');
+                }
+            }
+
+            var isInvalid = balance <= 0 || amount <= 0 || amount > balance;
+            setSubmitBtnDisabled(submitEl, isInvalid);
+            return !isInvalid;
+        };
+
         window.updateCoNominalPreview = function(inputId, previewId) {
             var input = document.getElementById(inputId);
             var preview = document.getElementById(previewId);
             if (!input || !preview) return;
             var val = parseFloat(input.value) || 0;
-            preview.textContent = 'Rp ' + val.toLocaleString('id-ID');
+            preview.textContent = fmtRp(val);
         };
 
         window.setOpsNominal = function(val) {
@@ -432,6 +546,7 @@
             if (!input) return;
             input.value = val;
             updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
+            validateOperationalBalance();
         };
 
         window.selectCashOutAccount = function(radio, cardSelector) {
@@ -463,7 +578,7 @@
                 return String(n).padStart(2, '0');
             };
             var todayStr = nowWib.getFullYear() + '-' + pad(nowWib.getMonth() + 1) + '-' + pad(nowWib
-        .getDate());
+                .getDate());
             var fromEl = document.getElementById('coDateFrom');
             var toEl = document.getElementById('coDateTo');
             var form = document.getElementById('coFilterForm');
@@ -497,7 +612,7 @@
         window.openCashOutInputModal = function(tab) {
             var modal = document.getElementById('cashOutInputModal');
             showModal(modal);
-            switchCashOutTab(tab || 'supplier');
+            switchCashOutTab(tab || 'supplier', true);
             setTimeout(function() {
                 if ((tab || 'supplier') === 'ops') {
                     var catEl = document.getElementById('opsCategorySelect');
@@ -510,15 +625,30 @@
         };
 
         window.closeCashOutInputModal = function() {
+            clearValidationArtifacts();
+            var supWarn = document.getElementById('supBalanceWarning');
+            var opsWarn = document.getElementById('opsBalanceWarning');
+            if (supWarn) {
+                supWarn.textContent = '';
+                supWarn.classList.add('hidden');
+            }
+            if (opsWarn) {
+                opsWarn.textContent = '';
+                opsWarn.classList.add('hidden');
+            }
             hideModal(document.getElementById('cashOutInputModal'));
         };
 
-        window.switchCashOutTab = function(tab) {
+        window.switchCashOutTab = function(tab, preserveValidationBanner) {
             var supplierForm = document.getElementById('tabSupplierForm');
             var opsForm = document.getElementById('tabOpsForm');
             var supplierBtn = document.getElementById('tabSupplierBtn');
             var opsBtn = document.getElementById('tabOpsBtn');
             if (!supplierForm || !opsForm) return;
+
+            if (!preserveValidationBanner) {
+                clearValidationArtifacts();
+            }
 
             if (tab === 'supplier') {
                 supplierForm.classList.remove('hidden');
@@ -527,6 +657,7 @@
                     'flex-1 py-space-xs rounded-lg bg-primary text-on-primary font-headline-sm text-body-sm font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer';
                 opsBtn.className =
                     'flex-1 py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface font-headline-sm text-body-sm font-medium flex items-center justify-center gap-space-xs transition-all cursor-pointer';
+                validateSupplierBalance();
             } else {
                 supplierForm.classList.add('hidden');
                 opsForm.classList.remove('hidden');
@@ -534,6 +665,7 @@
                     'flex-1 py-space-xs rounded-lg text-on-surface-variant hover:text-on-surface font-headline-sm text-body-sm font-medium flex items-center justify-center gap-space-xs transition-all cursor-pointer';
                 opsBtn.className =
                     'flex-1 py-space-xs rounded-lg bg-primary text-on-primary font-headline-sm text-body-sm font-semibold flex items-center justify-center gap-space-xs shadow-sm transition-all cursor-pointer';
+                validateOperationalBalance();
             }
         };
 
@@ -553,6 +685,7 @@
                 }
                 updateCoNominalPreview('payAmountInput', 'supNominalPreview');
             }
+            validateSupplierBalance();
         };
 
         window.setPayAmount = function(pct) {
@@ -562,6 +695,7 @@
             var remaining = parseInt(sel.options[sel.selectedIndex].dataset.remaining || 0, 10);
             amt.value = pct === '100' ? remaining : Math.floor(remaining / 2);
             updateCoNominalPreview('payAmountInput', 'supNominalPreview');
+            validateSupplierBalance();
         };
 
         window.payFromWidget = function(trxId) {
@@ -593,6 +727,19 @@
             var receiptLink = document.getElementById('coModalReceiptLink');
             if (receiptLink && d.receipt_url) {
                 receiptLink.href = d.receipt_url;
+            }
+
+            var incomingLink = document.getElementById('coModalIncomingGoodLink');
+            if (incomingLink) {
+                if (d.is_auto && d.incoming_good_url) {
+                    incomingLink.href = d.incoming_good_url;
+                    incomingLink.classList.remove('hidden');
+                    incomingLink.classList.add('inline-flex');
+                } else {
+                    incomingLink.href = '#';
+                    incomingLink.classList.add('hidden');
+                    incomingLink.classList.remove('inline-flex');
+                }
             }
 
             showModal(document.getElementById('cashOutDetailModal'));
@@ -628,5 +775,7 @@
 
         updateSupplierForm({{ old('amount') ? 'true' : 'false' }});
         updateCoNominalPreview('opsAmountInput', 'opsNominalPreview');
+        validateSupplierBalance();
+        validateOperationalBalance();
     })();
 </script>

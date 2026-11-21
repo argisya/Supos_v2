@@ -124,11 +124,12 @@ class CashOutController extends Controller
         $data = $request->validate([
             'category' => 'required|in:biaya_operasional,biaya_listrik,gaji_staff,logistik_armada,bensin_distribusi,lain_lain',
             'account' => 'required|in:bca,mandiri,kas_tunai',
-            'amount' => 'required|numeric|min:1',
+            'amount' => 'required|integer|min:1',
             'paid_at' => 'nullable|date',
             'notes' => 'required|string|max:255',
         ], [
             'category.required' => 'Kategori pengeluaran wajib dipilih.',
+            'amount.integer' => 'Nominal pengeluaran harus berupa angka bulat tanpa desimal.',
             'amount.min' => 'Nominal pengeluaran minimal Rp 1.',
             'notes.required' => 'Keterangan pengeluaran wajib diisi.',
         ]);
@@ -164,11 +165,12 @@ class CashOutController extends Controller
     public function paySupplier(Request $request, IncomingTransaction $transaction)
     {
         $data = $request->validate([
-            'amount' => 'required|numeric|min:1',
+            'amount' => 'required|integer|min:1',
             'paid_at' => 'required|date',
             'account' => 'required|in:bca,mandiri,kas_tunai',
             'notes' => 'nullable|string|max:255',
         ], [
+            'amount.integer' => 'Jumlah pembayaran harus berupa angka bulat tanpa desimal.',
             'amount.min' => 'Jumlah pembayaran minimal Rp 1.',
             'paid_at.required' => 'Tanggal pembayaran wajib diisi.',
         ]);
@@ -224,7 +226,7 @@ class CashOutController extends Controller
             ->with('success', "Entri pengeluaran manual senilai {$amountLabel} berhasil dihapus dan saldo rekening dikembalikan.");
     }
 
-    /** Ekspor CSV mutasi kas keluar sesuai filter aktif */
+    /** Ekspor CSV mutasi kas keluar sesuai filter aktif + baris total pengeluaran */
     public function export(Request $request)
     {
         [$query] = $this->buildFilteredQuery($request);
@@ -247,9 +249,13 @@ class CashOutController extends Controller
                 'Keterangan',
             ], ';');
 
+            $grandTotal = 0;
+
             foreach ($rows as $co) {
                 $recipient = $co->source?->supplier?->name ?? 'Pengeluaran Operasional';
                 $paidWib = $co->paid_at?->copy()->timezone('Asia/Jakarta')->format('Y-m-d H:i') ?? '-';
+                $amount = (int) round($co->amount);
+                $grandTotal += $amount;
 
                 fputcsv($handle, [
                     $paidWib,
@@ -258,10 +264,22 @@ class CashOutController extends Controller
                     $recipient,
                     $co->reference_no ?? '-',
                     $co->account_label,
-                    (int) $co->amount,
+                    $amount,
                     $co->notes ?? '-',
                 ], ';');
             }
+
+            fputcsv($handle, ['', '', '', '', '', '', '', ''], ';');
+            fputcsv($handle, [
+                '',
+                '',
+                '',
+                '',
+                '',
+                'TOTAL KAS KELUAR',
+                $grandTotal,
+                '',
+            ], ';');
 
             fclose($handle);
         }, $filename, [

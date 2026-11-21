@@ -160,7 +160,7 @@
 
         {{-- ============ VALIDATION ERRORS ============ --}}
         @if ($errors->any())
-            <div
+            <div id="coValidationBanner"
                 class="p-space-md rounded-xl bg-error/15 border border-error/30 text-error font-body-sm text-body-sm flex items-start justify-between gap-space-sm">
                 <div class="flex flex-col gap-1">
                     <span class="font-bold flex items-center gap-space-xs">
@@ -619,6 +619,10 @@
                                 $timeLabel = $paidWib ? $paidWib->format('H:i') . ' WIB' : '-';
                                 $fullTimeLabel = $paidWib ? $paidWib->translatedFormat('d M Y, H:i') . ' WIB' : '-';
                                 $receiptUrl = route('cash-outs.receipt', $co);
+                                $incomingGoodUrl =
+                                    $isAuto && filled($co->reference_no)
+                                        ? route('incoming-goods.index', ['search' => $co->reference_no])
+                                        : null;
 
                                 $rowJson = [
                                     'paid_at' => $fullTimeLabel,
@@ -631,6 +635,7 @@
                                     'reference_no' => $co->reference_no ?? '-',
                                     'notes' => $co->notes ?: '-',
                                     'receipt_url' => $receiptUrl,
+                                    'incoming_good_url' => $incomingGoodUrl,
                                 ];
                             @endphp
                             <tr class="hover:bg-surface-container/60 transition-colors group">
